@@ -1,6 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { createRoot } from 'react-dom/client';
-import { GoogleGenAI } from "@google/genai";
+import React, { useState, useRef, useEffect } from "react";
+import { createRoot } from "react-dom/client";
 
 // --- Types & Interfaces ---
 
@@ -155,7 +154,7 @@ const SettingsModal = ({
               </button>
             </div>
             <p className="text-xs text-gray-400 mt-2">
-              密钥将存储在您的本地浏览器中，不会上传到任何服务器。
+              密钥将保存在本地浏览器中，并通过加密连接发送到本应用服务器。
             </p>
           </div>
 
@@ -217,37 +216,23 @@ const App = () => {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
-  
-  // Settings State
   const [showSettings, setShowSettings] = useState(false);
   const [apiKeys, setApiKeys] = useState<string[]>([]);
   const [activeKeyIndex, setActiveKeyIndex] = useState(0);
 
-  // Initialize Keys from LocalStorage or Env
   useEffect(() => {
     const savedKeys = localStorage.getItem('gemini_api_keys');
     const savedIndex = localStorage.getItem('gemini_active_key_index');
-    
     if (savedKeys) {
-      const parsedKeys = JSON.parse(savedKeys);
-      setApiKeys(parsedKeys);
-      setActiveKeyIndex(savedIndex ? parseInt(savedIndex) : 0);
-    } else {
-      // Default to env key if exists
-      const envKey = process.env.API_KEY;
-      if (envKey) {
-        setApiKeys([envKey]);
-        setActiveKeyIndex(0);
-      }
+      const parsed = JSON.parse(savedKeys);
+      setApiKeys(parsed);
+      setActiveKeyIndex(savedIndex ? parseInt(savedIndex, 10) || 0 : 0);
     }
   }, []);
 
-  // Save keys when changed
   useEffect(() => {
-    if (apiKeys.length > 0) {
-      localStorage.setItem('gemini_api_keys', JSON.stringify(apiKeys));
-      localStorage.setItem('gemini_active_key_index', activeKeyIndex.toString());
-    }
+    localStorage.setItem('gemini_api_keys', JSON.stringify(apiKeys));
+    localStorage.setItem('gemini_active_key_index', String(activeKeyIndex));
   }, [apiKeys, activeKeyIndex]);
 
   // File input refs
@@ -265,44 +250,23 @@ const App = () => {
     return `${y}-${m}-${d}`;
   };
 
-  const getActiveAIClient = () => {
-    const key = apiKeys[activeKeyIndex];
-    if (!key) {
-      throw new Error("请先在设置中配置 Gemini API 密钥");
-    }
-    return new GoogleGenAI({ apiKey: key });
-  };
-
   // --- Handlers ---
 
   const handleApiError = (err: any, filename: string) => {
     console.error(`Error processing ${filename}:`, err);
     const errMsg = err instanceof Error ? err.message : String(err);
-    
-    // Check for Gemini Rate Limit errors
-    if (errMsg.includes('429') || errMsg.includes('Resource has been exhausted')) {
-      return `"${filename}": 触发了 API 频率限制 (429)。请在设置中切换备用 Key 或稍后重试。`;
-    }
-    if (errMsg.includes('SAFETY')) {
-      return `"${filename}": 被 AI 安全策略拦截，请检查图片内容。`;
-    }
-    if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')) {
-      return `"${filename}": API 密钥无效，请检查设置。`;
-    }
     return `"${filename}": ${errMsg}`;
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'excel') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-
     if (apiKeys.length === 0) {
-      alert("请先点击右上角设置图标，添加 Gemini API 密钥。");
+      alert("请先设置至少一个 Gemini API Key。");
       setShowSettings(true);
       if (e.target) e.target.value = '';
       return;
     }
-
     setIsProcessing(true);
 
     try {
@@ -345,34 +309,46 @@ const App = () => {
   };
 
   const processImage = async (file: File) => {
-    const base64Data = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve((reader.result as string).split(',')[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-
-    const ai = getActiveAIClient();
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: {
-        parts: [
-          { inlineData: { mimeType: file.type, data: base64Data } },
-          { text: "Extract medical data." }
-        ]
-      },
-      config: {
-        systemInstruction: IMAGE_SYSTEM_PROMPT,
-        responseMimeType: "application/json"
+    if (apiKeys.length === 0) {
+      throw new Error("请先设置 Gemini API Key");
+    }
+    const order: number[] = [];
+    for (let i = 0; i < apiKeys.length; i++) {
+      order.push((activeKeyIndex + i) % apiKeys.length);
+    }
+    let lastError: any = null;
+    for (const idx of order) {
+      const key = apiKeys[idx];
+      const formData = new FormData();
+      formData.append('file', file);
+      const resp = await fetch('/api/analyze/image', {
+        method: 'POST',
+        body: formData,
+        headers: {
+          'x-gemini-api-key': key,
+        },
+      });
+      if (resp.status === 429) {
+        lastError = new Error(`密钥 ${idx + 1} 触发频率限制`);
+        continue;
       }
-    });
-
-    const data = JSON.parse(cleanJsonString(response.text || "{}"));
-    addRecordsFromData([data]);
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || '服务器处理图片时出错');
+      }
+      const data = await resp.json();
+      addRecordsFromData([data]);
+      setActiveKeyIndex(idx);
+      return;
+    }
+    if (lastError) {
+      throw lastError;
+    }
   };
 
   const processExcel = async (file: File) => {
     if (!window.XLSX) throw new Error("Excel 组件加载中，请稍候再试");
+    if (apiKeys.length === 0) throw new Error("请先设置 Gemini API Key");
 
     setStatusMsg('正在读取表格数据...');
     const arrayBuffer = await file.arrayBuffer();
@@ -404,34 +380,45 @@ const App = () => {
       text: String(val || '').trim() 
     })).filter(h => h.text.length > 0);
 
-    // 3. Ask AI to map headers ONLY
     setStatusMsg('正在分析表头结构 (AI)...');
-    
-    const prompt = `
-    I have an Excel header row:
-    ${JSON.stringify(headers)}
 
-    Task:
-    1. Identify the column index for "Date" (looking for '日期', 'Date', 'Time' etc).
-    2. Map other medical columns to standard IDs.
-
-    Return JSON:
-    {
-      "dateColumnIndex": Number,
-      "mappings": [
-        { "columnIndex": Number, "id": "String (e.g. scr, egfr, bun, ua)", "name": "String (Original Name)", "category": "String (e.g. 肾功能)" }
-      ]
+    const order: number[] = [];
+    for (let i = 0; i < apiKeys.length; i++) {
+      order.push((activeKeyIndex + i) % apiKeys.length);
     }
-    `;
 
-    const ai = getActiveAIClient();
-    const response = await ai.models.generateContent({
-      model: MODEL_NAME,
-      contents: { parts: [{ text: prompt }] },
-      config: { responseMimeType: "application/json" }
-    });
+    let mapData: any = null;
+    let lastError: any = null;
 
-    const mapData = JSON.parse(cleanJsonString(response.text || "{}"));
+    for (const idx of order) {
+      const key = apiKeys[idx];
+      const resp = await fetch('/api/analyze/excel-header', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-gemini-api-key': key,
+        },
+        body: JSON.stringify({ headers }),
+      });
+
+      if (resp.status === 429) {
+        lastError = new Error(`密钥 ${idx + 1} 触发频率限制`);
+        continue;
+      }
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || '服务器处理表头时出错');
+      }
+
+      mapData = await resp.json();
+      setActiveKeyIndex(idx);
+      break;
+    }
+
+    if (!mapData) {
+      if (lastError) throw lastError;
+      throw new Error("分析表头失败");
+    }
     const dateColIdx = mapData.dateColumnIndex;
     const mappings = mapData.mappings || [];
 
@@ -572,31 +559,38 @@ const App = () => {
     setRecords(prev => prev.map(r => r.id === id ? { ...r, ...updatedFields } : r));
   };
 
-  // --- Render ---
-
   return (
     <div className="min-h-screen pb-20 font-sans text-gray-800 bg-gray-50">
-      <SettingsModal 
+      <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
         keys={apiKeys}
         activeKeyIndex={activeKeyIndex}
         onAddKey={(key) => {
-          const newKeys = [...apiKeys, key];
-          setApiKeys(newKeys);
-          setActiveKeyIndex(newKeys.length - 1); // Select new key automatically
+          setApiKeys(prev => {
+            if (prev.length >= 3) {
+              alert("最多只能保存 3 个密钥，请先删除一个。");
+              return prev;
+            }
+            const next = [...prev, key];
+            setActiveKeyIndex(next.length - 1);
+            return next;
+          });
         }}
         onDeleteKey={(idx) => {
-          const newKeys = apiKeys.filter((_, i) => i !== idx);
-          setApiKeys(newKeys);
-          if (activeKeyIndex >= idx && activeKeyIndex > 0) {
-            setActiveKeyIndex(activeKeyIndex - 1);
-          }
+          setApiKeys(prev => {
+            const next = prev.filter((_, i) => i !== idx);
+            if (next.length === 0) {
+              setActiveKeyIndex(0);
+            } else if (activeKeyIndex >= idx) {
+              setActiveKeyIndex(Math.max(0, activeKeyIndex - 1));
+            }
+            return next;
+          });
         }}
         onSelectKey={setActiveKeyIndex}
       />
 
-      {/* Header */}
       <header className="bg-white shadow-sm sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center space-x-3">
@@ -609,14 +603,14 @@ const App = () => {
                  <p className="text-xs text-gray-500">自动识别 · 智能解析</p>
                  {apiKeys.length > 0 && (
                    <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded border border-green-200">
-                     当前 Key: {activeKeyIndex + 1}
+                     当前 Key: {activeKeyIndex + 1}/{apiKeys.length}
                    </span>
                  )}
                </div>
             </div>
           </div>
           <div className="flex items-center space-x-3">
-            <button 
+            <button
               onClick={() => setShowSettings(true)}
               className="w-10 h-10 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors flex items-center justify-center"
               title="API 设置"
