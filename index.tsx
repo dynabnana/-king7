@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createRoot } from "react-dom/client";
+import { GoogleGenAI } from "@google/genai";
 
 // --- Types & Interfaces ---
 
@@ -243,6 +244,23 @@ const App = () => {
 
   const generateId = () => `rec_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
 
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result;
+        if (typeof result === "string") {
+          const base64 = result.split(",")[1] || "";
+          resolve(base64);
+        } else {
+          reject(new Error("无法读取文件"));
+        }
+      };
+      reader.onerror = () => reject(reader.error || new Error("读取文件失败"));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const formatDate = (date: Date) => {
     const y = date.getFullYear();
     const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -319,27 +337,41 @@ const App = () => {
     let lastError: any = null;
     for (const idx of order) {
       const key = apiKeys[idx];
-      const formData = new FormData();
-      formData.append('file', file);
-      const resp = await fetch('/api/analyze/image', {
-        method: 'POST',
-        body: formData,
-        headers: {
-          'x-gemini-api-key': key,
-        },
-      });
-      if (resp.status === 429) {
-        lastError = new Error(`密钥 ${idx + 1} 触发频率限制`);
-        continue;
+      try {
+        const base64Data = await fileToBase64(file);
+        const client = new GoogleGenAI({ apiKey: key });
+        const response = await client.models.generateContent({
+          model: MODEL_NAME,
+          contents: [
+            {
+              inlineData: {
+                mimeType: file.type || "image/png",
+                data: base64Data,
+              },
+            },
+            { text: "Extract medical data." },
+          ],
+          config: {
+            systemInstruction: IMAGE_SYSTEM_PROMPT,
+            responseMimeType: "application/json",
+          },
+        });
+
+        // @ts-expect-error SDK 聚合了 text 字段
+        const rawText = response.text || "";
+        const jsonStr = cleanJsonString(rawText);
+        const data = JSON.parse(jsonStr || "{}");
+        addRecordsFromData([data]);
+        setActiveKeyIndex(idx);
+        return;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("429") || msg.includes("Resource has been exhausted")) {
+          lastError = new Error(`密钥 ${idx + 1} 触发频率限制`);
+          continue;
+        }
+        throw err;
       }
-      if (!resp.ok) {
-        const text = await resp.text();
-        throw new Error(text || '服务器处理图片时出错');
-      }
-      const data = await resp.json();
-      addRecordsFromData([data]);
-      setActiveKeyIndex(idx);
-      return;
     }
     if (lastError) {
       throw lastError;

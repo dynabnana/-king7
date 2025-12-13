@@ -165,6 +165,16 @@ app.post("/api/analyze/excel-header", async (req, res) => {
   }
 });
 
+// Lightweight health check (useful for verifying Express is running)
+app.get("/api/health", (req, res) => {
+  res.json({
+    ok: true,
+    version: "v1",
+    port,
+    hasEnvKey: !!defaultApiKey,
+  });
+});
+
 app.use(express.static("dist"));
 
 app.get("*", (req, res) => {
