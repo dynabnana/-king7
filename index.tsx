@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createRoot } from "react-dom/client";
-import { GoogleGenAI } from "@google/genai";
 
 // --- Types & Interfaces ---
 
@@ -50,61 +49,18 @@ declare global {
   }
 }
 
-// --- AI Configuration Constants ---
-const MODEL_NAME = 'gemini-2.5-flash';
-
-// System prompt for Image processing
-const IMAGE_SYSTEM_PROMPT = `
-You are a medical data assistant for kidney disease patients.
-Your task is to extract medical examination data from images and convert it into a structured JSON object.
-
-Output Rules:
-1. Return ONLY a valid JSON object.
-2. The JSON must match this structure exactly:
-{
-  "title": "String, usually '复查记录'",
-  "date": Number (timestamp in milliseconds),
-  "hospital": "String, extracted or 'Unknown'",
-  "doctor": "String or empty",
-  "notes": "String summary",
-  "configName": "String (e.g. '肾功能常规', '血常规')",
-  "items": [
-    {
-      "id": "String (use standard codes like 'scr', 'egfr', 'bun', 'ua', 'urine_pro', etc.)",
-      "name": "String",
-      "value": "String (numbers only usually)",
-      "unit": "String",
-      "range": "String",
-      "categoryName": "String"
-    }
-  ]
-}
-3. For dates: Convert to Javascript Timestamp.
-`;
-
 // --- Helper Functions ---
-
-const cleanJsonString = (text: string): string => {
-  if (!text) return "{}";
-  let clean = text.replace(/```json/gi, '').replace(/```/g, '').trim();
-  const firstBrace = clean.indexOf('{');
-  const lastBrace = clean.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    clean = clean.substring(firstBrace, lastBrace + 1);
-  }
-  return clean;
-};
 
 // --- Components ---
 
-const SettingsModal = ({ 
-  isOpen, 
-  onClose, 
-  keys, 
-  activeKeyIndex, 
-  onAddKey, 
-  onDeleteKey, 
-  onSelectKey 
+const SettingsModal = ({
+  isOpen,
+  onClose,
+  keys,
+  activeKeyIndex,
+  onAddKey,
+  onDeleteKey,
+  onSelectKey
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -133,20 +89,20 @@ const SettingsModal = ({
             <i className="fa-solid fa-xmark text-xl"></i>
           </button>
         </div>
-        
+
         <div className="p-6 space-y-6">
           {/* Add New Key */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">添加新密钥 (Gemini API Key)</label>
             <div className="flex gap-2">
-              <input 
-                type="text" 
+              <input
+                type="text"
                 value={inputKey}
                 onChange={(e) => setInputKey(e.target.value)}
                 placeholder="AIzaSy..."
                 className="flex-1 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
               />
-              <button 
+              <button
                 onClick={handleAdd}
                 disabled={!inputKey}
                 className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
@@ -169,8 +125,8 @@ const SettingsModal = ({
                 </div>
               ) : (
                 keys.map((k, idx) => (
-                  <div 
-                    key={idx} 
+                  <div
+                    key={idx}
                     onClick={() => onSelectKey(idx)}
                     className={`flex items-center justify-between p-3 rounded-lg border cursor-pointer transition-all ${activeKeyIndex === idx ? 'border-blue-500 bg-blue-50/50 ring-1 ring-blue-500' : 'border-gray-200 hover:border-gray-300'}`}
                   >
@@ -187,7 +143,7 @@ const SettingsModal = ({
                         </span>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={(e) => { e.stopPropagation(); onDeleteKey(idx); }}
                       className="text-gray-400 hover:text-red-500 p-2 transition-colors"
                     >
@@ -201,7 +157,7 @@ const SettingsModal = ({
         </div>
 
         <div className="bg-gray-50 px-6 py-4 border-t border-gray-100 flex justify-end">
-          <button 
+          <button
             onClick={onClose}
             className="px-5 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
           >
@@ -304,7 +260,7 @@ const App = () => {
         }
 
         if (errors.length > 0) {
-           alert(`批量识别完成。\n成功: ${successCount} 张\n失败: ${errors.length} 张\n\n失败原因:\n${errors.join('\n')}`);
+          alert(`批量识别完成。\n成功: ${successCount} 张\n失败: ${errors.length} 张\n\n失败原因:\n${errors.join('\n')}`);
         }
 
       } else {
@@ -327,55 +283,35 @@ const App = () => {
   };
 
   const processImage = async (file: File) => {
-    if (apiKeys.length === 0) {
-      throw new Error("请先设置 Gemini API Key");
-    }
-    const order: number[] = [];
-    for (let i = 0; i < apiKeys.length; i++) {
-      order.push((activeKeyIndex + i) % apiKeys.length);
-    }
-    let lastError: any = null;
-    for (const idx of order) {
-      const key = apiKeys[idx];
-      try {
-        const base64Data = await fileToBase64(file);
-        const client = new GoogleGenAI({ apiKey: key });
-        const response = await client.models.generateContent({
-          model: MODEL_NAME,
-          contents: [
-            {
-              inlineData: {
-                mimeType: file.type || "image/png",
-                data: base64Data,
-              },
-            },
-            { text: "Extract medical data." },
-          ],
-          config: {
-            systemInstruction: IMAGE_SYSTEM_PROMPT,
-            responseMimeType: "application/json",
-          },
-        });
+    // 通过后端 API 进行图片识别
+    const formData = new FormData();
+    formData.append('file', file);
 
-        // @ts-expect-error SDK 聚合了 text 字段
-        const rawText = response.text || "";
-        const jsonStr = cleanJsonString(rawText);
-        const data = JSON.parse(jsonStr || "{}");
-        addRecordsFromData([data]);
-        setActiveKeyIndex(idx);
-        return;
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        if (msg.includes("429") || msg.includes("Resource has been exhausted")) {
-          lastError = new Error(`密钥 ${idx + 1} 触发频率限制`);
-          continue;
-        }
-        throw err;
+    // 如果有本地 API Key，通过请求头传递（可选，服务器优先使用环境变量）
+    const headers: Record<string, string> = {};
+    if (apiKeys.length > 0) {
+      headers['x-gemini-api-key'] = apiKeys[activeKeyIndex];
+    }
+
+    const resp = await fetch('/api/analyze/image', {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}));
+      if (resp.status === 429) {
+        throw new Error('API 请求频率限制，请稍后重试');
       }
+      if (errorData.error === 'NO_API_KEY') {
+        throw new Error('服务器未配置 API Key，请联系管理员或在设置中添加');
+      }
+      throw new Error(errorData.message || '图片识别失败');
     }
-    if (lastError) {
-      throw lastError;
-    }
+
+    const data = await resp.json();
+    addRecordsFromData([data]);
   };
 
   const processExcel = async (file: File) => {
@@ -387,10 +323,10 @@ const App = () => {
     // Use cellDates: true to let SheetJS handle standard dates
     const workbook = window.XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
-    
+
     // 1. Get raw data (Array of Arrays)
     const jsonData = window.XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-    
+
     if (!jsonData || jsonData.length === 0) throw new Error("表格为空");
 
     // 2. Find Header Row (Heuristic: Row with most strings)
@@ -407,9 +343,9 @@ const App = () => {
       }
     }
 
-    const headers = (jsonData[headerRowIndex] as any[]).map((val, idx) => ({ 
-      index: idx, 
-      text: String(val || '').trim() 
+    const headers = (jsonData[headerRowIndex] as any[]).map((val, idx) => ({
+      index: idx,
+      text: String(val || '').trim()
     })).filter(h => h.text.length > 0);
 
     setStatusMsg('正在分析表头结构 (AI)...');
@@ -472,7 +408,7 @@ const App = () => {
       let dateVal = row[usedDateCol];
       let timestamp = 0;
       let isValidDate = false;
-      let extraContext = ""; 
+      let extraContext = "";
 
       if (dateVal instanceof Date) {
         timestamp = dateVal.getTime();
@@ -480,36 +416,36 @@ const App = () => {
       } else if (typeof dateVal === 'string') {
         const strVal = dateVal.trim();
         const match = strVal.match(dateRegex);
-        
+
         if (match) {
-           const year = parseInt(match[1]);
-           const month = parseInt(match[2]) - 1; 
-           const day = parseInt(match[3]);
-           const d = new Date(year, month, day);
-           if (!isNaN(d.getTime())) {
-             timestamp = d.getTime();
-             isValidDate = true;
-             extraContext = strVal.replace(match[0], '').trim();
-           }
+          const year = parseInt(match[1]);
+          const month = parseInt(match[2]) - 1;
+          const day = parseInt(match[3]);
+          const d = new Date(year, month, day);
+          if (!isNaN(d.getTime())) {
+            timestamp = d.getTime();
+            isValidDate = true;
+            extraContext = strVal.replace(match[0], '').trim();
+          }
         }
-      } 
-      
+      }
+
       if (!isValidDate) continue;
 
       const items: MedicalItem[] = [];
       mappings.forEach((m: any) => {
         const val = row[m.columnIndex];
         if (val !== null && val !== undefined && String(val).trim() !== '') {
-           let cleanVal = String(val).trim();
-           cleanVal = cleanVal.replace(/[↑↓]/g, '');
-           items.push({
-             id: m.id || 'unknown',
-             name: m.name || 'Unknown',
-             value: cleanVal,
-             unit: '', 
-             range: '',
-             categoryName: m.category || '其他'
-           });
+          let cleanVal = String(val).trim();
+          cleanVal = cleanVal.replace(/[↑↓]/g, '');
+          items.push({
+            id: m.id || 'unknown',
+            name: m.name || 'Unknown',
+            value: cleanVal,
+            unit: '',
+            range: '',
+            categoryName: m.category || '其他'
+          });
         }
       });
 
@@ -517,7 +453,7 @@ const App = () => {
         let recordTitle = '复查记录';
         let recordHospital = '';
         if (extraContext) {
-          recordHospital = extraContext; 
+          recordHospital = extraContext;
           if (extraContext.includes('住院')) recordTitle = '住院检查';
           else recordTitle = '门诊复查';
         }
@@ -630,15 +566,15 @@ const App = () => {
               <i className="fa-solid fa-file-medical text-xl"></i>
             </div>
             <div>
-               <h1 className="text-xl font-bold text-gray-800 tracking-tight">检查单识别助手</h1>
-               <div className="flex items-center gap-2">
-                 <p className="text-xs text-gray-500">自动识别 · 智能解析</p>
-                 {apiKeys.length > 0 && (
-                   <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded border border-green-200">
-                     当前 Key: {activeKeyIndex + 1}/{apiKeys.length}
-                   </span>
-                 )}
-               </div>
+              <h1 className="text-xl font-bold text-gray-800 tracking-tight">检查单识别助手</h1>
+              <div className="flex items-center gap-2">
+                <p className="text-xs text-gray-500">自动识别 · 智能解析</p>
+                {apiKeys.length > 0 && (
+                  <span className="text-[10px] bg-green-100 text-green-600 px-1.5 py-0.5 rounded border border-green-200">
+                    当前 Key: {activeKeyIndex + 1}/{apiKeys.length}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex items-center space-x-3">
@@ -649,7 +585,7 @@ const App = () => {
             >
               <i className="fa-solid fa-gear"></i>
             </button>
-            <button 
+            <button
               onClick={handleExport}
               disabled={records.length === 0}
               className={`px-4 py-2.5 rounded-xl font-medium transition-all shadow-sm flex items-center space-x-2 ${records.length === 0 ? 'bg-gray-100 text-gray-400 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-700 hover:shadow-md active:scale-95'}`}
@@ -662,15 +598,15 @@ const App = () => {
       </header>
 
       <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-        
+
         {/* Upload Area */}
         <section className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 to-green-400"></div>
           <h2 className="text-xl font-bold mb-8 text-gray-800">添加数据源</h2>
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Image Upload */}
-            <div 
+            <div
               onClick={() => imgInputRef.current?.click()}
               className="group relative border-2 border-dashed border-blue-200 bg-blue-50/50 rounded-2xl p-10 cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition-all duration-300"
             >
@@ -678,12 +614,12 @@ const App = () => {
                 <i className="fa-solid fa-camera text-3xl"></i>
               </div>
               <h3 className="text-lg font-bold text-blue-900 mb-2">识别图片</h3>
-              <p className="text-sm text-blue-600/80">支持多张上传<br/>自动提取各项指标</p>
+              <p className="text-sm text-blue-600/80">支持多张上传<br />自动提取各项指标</p>
               <input ref={imgInputRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => handleFileUpload(e, 'image')} />
             </div>
 
             {/* Excel Upload */}
-            <div 
+            <div
               onClick={() => excelInputRef.current?.click()}
               className="group relative border-2 border-dashed border-emerald-200 bg-emerald-50/50 rounded-2xl p-10 cursor-pointer hover:bg-emerald-50 hover:border-emerald-400 transition-all duration-300"
             >
@@ -691,7 +627,7 @@ const App = () => {
                 <i className="fa-solid fa-file-excel text-3xl"></i>
               </div>
               <h3 className="text-lg font-bold text-emerald-900 mb-2">读取 Excel</h3>
-              <p className="text-sm text-emerald-600/80">支持 .xlsx / .xls<br/>批量导入历史数据</p>
+              <p className="text-sm text-emerald-600/80">支持 .xlsx / .xls<br />批量导入历史数据</p>
               <input ref={excelInputRef} type="file" accept=".xlsx, .xls" className="hidden" onChange={(e) => handleFileUpload(e, 'excel')} />
             </div>
           </div>
@@ -731,9 +667,9 @@ const App = () => {
 
           <div className="grid grid-cols-1 gap-4">
             {records.map((record) => (
-              <RecordCard 
-                key={record.id} 
-                record={record} 
+              <RecordCard
+                key={record.id}
+                record={record}
                 onDelete={handleDelete}
                 onUpdate={updateRecord}
               />
@@ -780,13 +716,13 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onDelete, onUpdate }) =
       <div className="p-5 flex items-center justify-between cursor-pointer bg-white" onClick={() => setIsExpanded(!isExpanded)}>
         <div className="flex items-center space-x-5">
           <div className={`w-14 h-14 rounded-2xl flex flex-col items-center justify-center font-bold text-white shadow-sm ${record.hospital ? 'bg-emerald-500' : 'bg-blue-500'}`}>
-             <span className="text-xs opacity-80">{new Date(record.date).getFullYear()}</span>
-             <span className="text-lg leading-none">{new Date(record.date).getMonth()+1}/{new Date(record.date).getDate()}</span>
+            <span className="text-xs opacity-80">{new Date(record.date).getFullYear()}</span>
+            <span className="text-lg leading-none">{new Date(record.date).getMonth() + 1}/{new Date(record.date).getDate()}</span>
           </div>
           <div>
             <div className="flex items-baseline space-x-2">
-                <h3 className="font-bold text-gray-900 text-lg">{record.title}</h3>
-                {record.hospital && <span className="text-sm text-gray-500 bg-gray-100 px-1.5 rounded">{record.hospital}</span>}
+              <h3 className="font-bold text-gray-900 text-lg">{record.title}</h3>
+              {record.hospital && <span className="text-sm text-gray-500 bg-gray-100 px-1.5 rounded">{record.hospital}</span>}
             </div>
             <div className="flex items-center gap-3 mt-1 text-sm text-gray-500">
               <span className="bg-gray-100 px-2 py-0.5 rounded text-gray-600">{record.configName}</span>
@@ -795,15 +731,15 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onDelete, onUpdate }) =
           </div>
         </div>
         <div className="flex items-center space-x-2">
-           <button 
-             onClick={(e) => { e.stopPropagation(); onDelete(record.id); }}
-             className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-           >
-             <i className="fa-solid fa-trash"></i>
-           </button>
-           <div className={`w-10 h-10 rounded-full flex items-center justify-center text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-gray-100' : ''}`}>
-             <i className="fa-solid fa-chevron-down"></i>
-           </div>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(record.id); }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+          >
+            <i className="fa-solid fa-trash"></i>
+          </button>
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center text-gray-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-gray-100' : ''}`}>
+            <i className="fa-solid fa-chevron-down"></i>
+          </div>
         </div>
       </div>
 
@@ -813,37 +749,37 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onDelete, onUpdate }) =
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
             <div className="form-group">
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5">标题</label>
-              <input 
-                value={record.title} 
+              <input
+                value={record.title}
                 onChange={(e) => onUpdate(record.id, { title: e.target.value })}
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
               />
             </div>
             <div className="form-group">
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5">医院/来源</label>
-              <input 
-                value={record.hospital} 
+              <input
+                value={record.hospital}
                 onChange={(e) => onUpdate(record.id, { hospital: e.target.value })}
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
               />
             </div>
             <div className="form-group md:col-span-2">
               <label className="block text-xs font-bold text-gray-400 uppercase mb-1.5">日期 (自动校准)</label>
-              <input 
+              <input
                 type="datetime-local"
                 value={new Date(record.date).toISOString().slice(0, 16)}
                 onChange={(e) => onUpdate(record.id, { date: new Date(e.target.value).getTime() })}
-                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all" 
+                className="w-full bg-white border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
               />
             </div>
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex justify-between items-center">
-               <h4 className="font-semibold text-sm text-gray-700">检查项目明细</h4>
-               <button onClick={addItem} className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-md font-medium transition-colors">
-                 + 添加项目
-               </button>
+              <h4 className="font-semibold text-sm text-gray-700">检查项目明细</h4>
+              <button onClick={addItem} className="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-md font-medium transition-colors">
+                + 添加项目
+              </button>
             </div>
 
             <div className="overflow-x-auto">
@@ -860,40 +796,40 @@ const RecordCard: React.FC<RecordCardProps> = ({ record, onDelete, onUpdate }) =
                 <tbody className="divide-y divide-gray-100">
                   {record.items.map((item, idx) => (
                     <tr key={idx} className="hover:bg-blue-50/30 transition-colors group">
-                       <td className="p-2 pl-4">
-                         <input 
-                          value={item.id} 
+                      <td className="p-2 pl-4">
+                        <input
+                          value={item.id}
                           onChange={(e) => handleItemChange(idx, 'id', e.target.value)}
                           placeholder="code"
-                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 font-mono text-xs text-blue-600" 
+                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 font-mono text-xs text-blue-600"
                         />
-                       </td>
-                       <td className="p-2">
-                         <input 
-                          value={item.name} 
+                      </td>
+                      <td className="p-2">
+                        <input
+                          value={item.name}
                           onChange={(e) => handleItemChange(idx, 'name', e.target.value)}
-                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 font-medium text-gray-700" 
+                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 font-medium text-gray-700"
                         />
-                       </td>
-                       <td className="p-2">
-                         <input 
-                          value={item.value} 
+                      </td>
+                      <td className="p-2">
+                        <input
+                          value={item.value}
                           onChange={(e) => handleItemChange(idx, 'value', e.target.value)}
-                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 font-bold text-gray-900" 
+                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 font-bold text-gray-900"
                         />
-                       </td>
-                       <td className="p-2">
-                         <input 
-                          value={item.unit} 
+                      </td>
+                      <td className="p-2">
+                        <input
+                          value={item.unit}
                           onChange={(e) => handleItemChange(idx, 'unit', e.target.value)}
-                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 text-gray-400 text-xs" 
+                          className="w-full bg-transparent border-b border-transparent focus:border-blue-300 focus:outline-none py-1 text-gray-400 text-xs"
                         />
-                       </td>
-                       <td className="p-2 pr-4 text-center">
-                         <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-                           <i className="fa-solid fa-xmark"></i>
-                         </button>
-                       </td>
+                      </td>
+                      <td className="p-2 pr-4 text-center">
+                        <button onClick={() => removeItem(idx)} className="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <i className="fa-solid fa-xmark"></i>
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
