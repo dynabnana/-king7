@@ -235,12 +235,8 @@ const App = () => {
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'image' | 'excel') => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
-    if (apiKeys.length === 0) {
-      alert("请先设置至少一个 Gemini API Key。");
-      setShowSettings(true);
-      if (e.target) e.target.value = '';
-      return;
-    }
+    // 图片识别由后端处理，无需本地 API Key
+    // Excel 解析也由后端处理，无需本地 API Key
     setIsProcessing(true);
 
     try {
@@ -316,7 +312,7 @@ const App = () => {
 
   const processExcel = async (file: File) => {
     if (!window.XLSX) throw new Error("Excel 组件加载中，请稍候再试");
-    if (apiKeys.length === 0) throw new Error("请先设置 Gemini API Key");
+    // Excel 解析由后端 API 处理，无需本地 API Key
 
     setStatusMsg('正在读取表格数据...');
     const arrayBuffer = await file.arrayBuffer();
