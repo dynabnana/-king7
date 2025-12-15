@@ -1,10 +1,23 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
-import { GoogleGenAI } from "@google/genai";
+
+// 延迟加载 GoogleGenAI 以减少空闲内存
+let GoogleGenAI = null;
+const loadGenAI = async () => {
+  if (!GoogleGenAI) {
+    const module = await import("@google/genai");
+    GoogleGenAI = module.GoogleGenAI;
+  }
+  return GoogleGenAI;
+};
 
 const app = express();
-const upload = multer({ limits: { fileSize: 10 * 1024 * 1024 } }); // 10MB limit
+// 使用内存存储但限制文件大小，处理完立即释放
+const upload = multer({
+  limits: { fileSize: 5 * 1024 * 1024 }, // 降低到 5MB 限制
+  storage: multer.memoryStorage()
+});
 
 const port = process.env.PORT || 3000;
 
@@ -17,6 +30,50 @@ const ENV_API_KEYS = (process.env.GEMINI_API_KEY || "")
 let currentKeyIndex = 0;
 
 const MODEL_NAME = "gemini-2.5-flash";
+
+// 客户端缓存（按需创建，空闲时清理）
+let clientCache = new Map();
+let lastRequestTime = Date.now();
+
+// ========== 并发控制 ==========
+// 限制同时处理的请求数，防止内存飙升
+const MAX_CONCURRENT_REQUESTS = 2; // 最多同时处理2个请求
+let activeRequests = 0;
+const requestQueue = [];
+
+const acquireSlot = () => {
+  return new Promise((resolve) => {
+    if (activeRequests < MAX_CONCURRENT_REQUESTS) {
+      activeRequests++;
+      resolve();
+    } else {
+      requestQueue.push(resolve);
+    }
+  });
+};
+
+const releaseSlot = () => {
+  activeRequests--;
+  if (requestQueue.length > 0) {
+    const next = requestQueue.shift();
+    activeRequests++;
+    next();
+  }
+};
+
+// 定期清理空闲资源（每5分钟检查一次）
+setInterval(() => {
+  const idleTime = Date.now() - lastRequestTime;
+  // 如果空闲超过3分钟，清理客户端缓存
+  if (idleTime > 3 * 60 * 1000 && clientCache.size > 0) {
+    clientCache.clear();
+    // 建议 V8 进行垃圾回收（如果可用）
+    if (global.gc) {
+      global.gc();
+    }
+    console.log(`[Memory] Cleared client cache after ${Math.round(idleTime / 1000)}s idle`);
+  }
+}, 5 * 60 * 1000);
 
 const IMAGE_SYSTEM_PROMPT = `
 You are a medical data assistant for kidney disease patients.
@@ -73,11 +130,29 @@ const getApiKey = (req) => {
   return null;
 };
 
-const createClient = (apiKey) => {
+const createClient = async (apiKey) => {
   if (!apiKey) {
     throw new Error("NO_API_KEY");
   }
-  return new GoogleGenAI({ apiKey });
+
+  // 更新最后请求时间
+  lastRequestTime = Date.now();
+
+  // 检查缓存
+  if (clientCache.has(apiKey)) {
+    return clientCache.get(apiKey);
+  }
+
+  // 延迟加载 SDK
+  const GenAI = await loadGenAI();
+  const client = new GenAI({ apiKey });
+
+  // 缓存客户端（只缓存环境变量的 key，避免缓存用户传入的 key）
+  if (ENV_API_KEYS.includes(apiKey)) {
+    clientCache.set(apiKey, client);
+  }
+
+  return client;
 };
 
 // CORS 中间件 - 支持小程序跨域请求
@@ -102,6 +177,9 @@ app.use(express.json({ limit: "10mb" }));
 // API 端点：图片识别 - 用于网页端（支持 multipart/form-data）
 // ===========================================
 app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
+  // 获取并发槽位（限制同时处理的请求数）
+  await acquireSlot();
+
   try {
     if (!req.file) {
       return res.status(400).json({ error: "file is required" });
@@ -109,7 +187,7 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
 
     const base64Data = req.file.buffer.toString("base64");
     const apiKey = getApiKey(req);
-    const client = createClient(apiKey);
+    const client = await createClient(apiKey);
 
     const response = await client.models.generateContent({
       model: MODEL_NAME,
@@ -149,6 +227,9 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
       error: "IMAGE_ANALYZE_FAILED",
       message,
     });
+  } finally {
+    // 无论成功失败都要释放槽位
+    releaseSlot();
   }
 });
 
@@ -156,6 +237,9 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
 // API 端点：图片识别 - 用于小程序（支持 base64 JSON）
 // ===========================================
 app.post("/api/analyze/image-base64", async (req, res) => {
+  // 获取并发槽位（限制同时处理的请求数）
+  await acquireSlot();
+
   try {
     const { base64, mimeType } = req.body || {};
     if (!base64) {
@@ -169,7 +253,7 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     }
 
     const apiKey = getApiKey(req);
-    const client = createClient(apiKey);
+    const client = await createClient(apiKey);
 
     const response = await client.models.generateContent({
       model: MODEL_NAME,
@@ -214,6 +298,9 @@ app.post("/api/analyze/image-base64", async (req, res) => {
       error: "IMAGE_ANALYZE_FAILED",
       message,
     });
+  } finally {
+    // 无论成功失败都要释放槽位
+    releaseSlot();
   }
 });
 
@@ -245,7 +332,7 @@ app.post("/api/analyze/excel-header", async (req, res) => {
     `;
 
     const apiKey = getApiKey(req);
-    const client = createClient(apiKey);
+    const client = await createClient(apiKey);
 
     const response = await client.models.generateContent({
       model: MODEL_NAME,
@@ -281,16 +368,33 @@ app.post("/api/analyze/excel-header", async (req, res) => {
 });
 
 // ===========================================
-// 健康检查端点
+// 健康检查端点（含内存和并发监控）
 // ===========================================
 app.get("/api/health", (req, res) => {
+  const memUsage = process.memoryUsage();
   res.json({
     ok: true,
-    version: "v2",
+    version: "v4-concurrent-limited",
     port,
     hasEnvKey: ENV_API_KEYS.length > 0,
     keyCount: ENV_API_KEYS.length,
     timestamp: Date.now(),
+    memory: {
+      heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024 * 100) / 100, // MB
+      heapTotal: Math.round(memUsage.heapTotal / 1024 / 1024 * 100) / 100, // MB
+      rss: Math.round(memUsage.rss / 1024 / 1024 * 100) / 100, // MB
+      external: Math.round(memUsage.external / 1024 / 1024 * 100) / 100, // MB
+    },
+    concurrency: {
+      maxConcurrent: MAX_CONCURRENT_REQUESTS,
+      activeRequests: activeRequests,
+      queuedRequests: requestQueue.length
+    },
+    cache: {
+      clientsCached: clientCache.size,
+      sdkLoaded: GoogleGenAI !== null,
+      lastRequestAge: Math.round((Date.now() - lastRequestTime) / 1000) // seconds ago
+    }
   });
 });
 
