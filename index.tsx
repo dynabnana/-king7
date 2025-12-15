@@ -199,12 +199,32 @@ const App = () => {
       setApiKeys(parsed);
       setActiveKeyIndex(savedIndex ? parseInt(savedIndex, 10) || 0 : 0);
     }
+
+    // 加载保存的识别记录
+    const savedRecords = localStorage.getItem('medical_records');
+    if (savedRecords) {
+      try {
+        const parsed = JSON.parse(savedRecords);
+        if (Array.isArray(parsed)) {
+          setRecords(parsed);
+        }
+      } catch (e) {
+        console.error('Failed to load saved records:', e);
+      }
+    }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('gemini_api_keys', JSON.stringify(apiKeys));
     localStorage.setItem('gemini_active_key_index', String(activeKeyIndex));
   }, [apiKeys, activeKeyIndex]);
+
+  // 保存识别记录到 localStorage
+  useEffect(() => {
+    if (records.length > 0) {
+      localStorage.setItem('medical_records', JSON.stringify(records));
+    }
+  }, [records]);
 
   // 获取 API 统计数据
   const fetchApiStats = async () => {
@@ -720,7 +740,7 @@ const App = () => {
               <span className="bg-gray-200 text-gray-600 text-xs py-1 px-2 rounded-full">{records.length}</span>
             </h2>
             {records.length > 0 && (
-              <button onClick={() => setRecords([])} className="text-sm text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg transition-colors">
+              <button onClick={() => { setRecords([]); localStorage.removeItem('medical_records'); }} className="text-sm text-red-500 hover:text-red-700 hover:bg-red-50 px-3 py-1 rounded-lg transition-colors">
                 清空列表
               </button>
             )}
