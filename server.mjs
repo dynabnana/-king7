@@ -1289,16 +1289,26 @@ app.post("/api/user/redeem", async (req, res) => {
     return res.status(400).json({ success: false, message: "缺少参数" });
   }
 
-  const cleanCode = code.trim().toUpperCase();
+  const cleanCode = code.trim();
 
   // 从 Redis 获取数据
   const [codes, users] = await Promise.all([getQuotaCodes(), getQuotaUsers()]);
 
-  if (!codes[cleanCode]) {
+  // 尝试查找兑换码（先尝试原始输入，再尝试大写，再尝试小写）
+  let matchedCode = null;
+  if (codes[cleanCode]) {
+    matchedCode = cleanCode;
+  } else if (codes[cleanCode.toUpperCase()]) {
+    matchedCode = cleanCode.toUpperCase();
+  } else if (codes[cleanCode.toLowerCase()]) {
+    matchedCode = cleanCode.toLowerCase();
+  }
+
+  if (!matchedCode) {
     return res.status(404).json({ success: false, message: "无效的兑换码" });
   }
 
-  const codeData = codes[cleanCode];
+  const codeData = codes[matchedCode];
 
   // 初始化用户如果不存在
   if (!users[userId]) {
@@ -1315,7 +1325,7 @@ app.post("/api/user/redeem", async (req, res) => {
   if (codeData.type === 'unlimited' || codeData.quota === -1) {
     // 无限畅享兑换码
     users[userId].isUnlimited = true;
-    delete codes[cleanCode];
+    delete codes[matchedCode];
 
     await Promise.all([saveQuotaCodes(codes), saveQuotaUsers(users)]);
 
@@ -1330,7 +1340,7 @@ app.post("/api/user/redeem", async (req, res) => {
   } else {
     // 普通额度兑换码
     users[userId].extraQuota = (users[userId].extraQuota || 0) + codeData.quota;
-    delete codes[cleanCode];
+    delete codes[matchedCode];
 
     await Promise.all([saveQuotaCodes(codes), saveQuotaUsers(users)]);
 
