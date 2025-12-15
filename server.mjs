@@ -95,8 +95,60 @@ const saveUsageLogs = () => {
   }
 };
 
-// 记录用户使用
-const logUserUsage = (req, apiType, extra = {}) => {
+// ========== IP 地理位置查询 ==========
+// 使用 PConline 免费 API 查询 IP 归属地（省+市+区）
+const ipLocationCache = new Map(); // 缓存 IP 位置，避免重复查询
+
+const getIpLocation = async (ip) => {
+  // 检查缓存
+  if (ipLocationCache.has(ip)) {
+    return ipLocationCache.get(ip);
+  }
+
+  // 过滤本地/内网 IP
+  if (!ip || ip === 'unknown' || ip === '127.0.0.1' || ip === '::1' || ip.startsWith('192.168.') || ip.startsWith('10.') || ip.startsWith('172.')) {
+    return { province: '本地网络', city: '', district: '', location: '本地网络' };
+  }
+
+  try {
+    // 使用 PConline IP 查询 API
+    const response = await fetch(`http://whois.pconline.com.cn/ipJson.jsp?ip=${ip}&json=true`, {
+      timeout: 3000 // 3秒超时
+    });
+
+    if (!response.ok) {
+      throw new Error('API request failed');
+    }
+
+    const text = await response.text();
+    // PConline 返回的是 GBK 编码的 JSON，需要处理
+    // 响应格式: {"ip":"x.x.x.x","pro":"省份","proCode":"xxx","city":"城市","cityCode":"xxx","region":"区县","regionCode":"xxx","addr":"完整地址","regionNames":"","err":""}
+    const data = JSON.parse(text);
+
+    const result = {
+      province: data.pro || '',
+      city: data.city || '',
+      district: data.region || '',
+      location: [data.pro, data.city, data.region].filter(Boolean).join(' ') || data.addr || ip
+    };
+
+    // 缓存结果（最多缓存1000个）
+    if (ipLocationCache.size > 1000) {
+      const firstKey = ipLocationCache.keys().next().value;
+      ipLocationCache.delete(firstKey);
+    }
+    ipLocationCache.set(ip, result);
+
+    return result;
+  } catch (err) {
+    console.error(`[IP Location] Failed to get location for ${ip}:`, err.message);
+    // 降级返回 IP
+    return { province: '', city: '', district: '', location: ip };
+  }
+};
+
+// 记录用户使用（带 IP 地理位置）
+const logUserUsage = async (req, apiType, extra = {}) => {
   const { nickname, userId } = req.body || {};
 
   // 获取用户IP
@@ -104,6 +156,14 @@ const logUserUsage = (req, apiType, extra = {}) => {
     || req.headers["x-real-ip"]
     || req.socket?.remoteAddress
     || "unknown";
+
+  // 获取 IP 地理位置（异步但不阻塞主流程）
+  let locationInfo = { province: '', city: '', district: '', location: ip };
+  try {
+    locationInfo = await getIpLocation(ip);
+  } catch (e) {
+    // 忽略错误，使用默认值
+  }
 
   const userKey = nickname || userId || ip;
   const count = (userStats.get(userKey) || 0) + 1;
@@ -115,6 +175,7 @@ const logUserUsage = (req, apiType, extra = {}) => {
     nickname: nickname || null,
     userId: userId || null,
     ip: ip,
+    ipLocation: locationInfo, // 新增：IP 地理位置信息（省+市+区）
     apiType: apiType,
     cumulativeCount: count,
     ...extra
@@ -130,7 +191,7 @@ const logUserUsage = (req, apiType, extra = {}) => {
   // 异步保存到磁盘
   setImmediate(saveUsageLogs);
 
-  console.log(`[Usage] ${nickname || userId || "匿名"} (${ip}) - ${apiType} - 第${count}次使用`);
+  console.log(`[Usage] ${nickname || userId || "匿名"} (${locationInfo.location || ip}) - ${apiType} - 第${count}次使用`);
 
   return logEntry;
 };
@@ -947,7 +1008,8 @@ app.post("/api/admin/codes/generate", verifyAdminToken, (req, res) => {
     const code = "PRO-" + Math.random().toString(36).substr(2, 6).toUpperCase() + Math.random().toString(36).substr(2, 2).toUpperCase();
     quotaStore.codes[code] = {
       quota: quotaAmount,
-      createTime: Date.now()
+      createTime: Date.now(),
+      type: 'quota' // 普通额度兑换码
     };
     newCodes.push(code);
   }
@@ -960,11 +1022,77 @@ app.post("/api/admin/codes/generate", verifyAdminToken, (req, res) => {
   });
 });
 
+// [Admin] 生成无限畅享兑换码
+app.post("/api/admin/codes/generate-unlimited", verifyAdminToken, (req, res) => {
+  const { count, remark } = req.body; // count: 生成数量, remark: 备注
+  const generateCount = parseInt(count) || 1;
+
+  const newCodes = [];
+  for (let i = 0; i < generateCount; i++) {
+    // 使用 dzwdsg + 时间戳后4位 + 随机2位数字 格式
+    const timestamp = Date.now().toString().slice(-4);
+    const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
+    const code = `dzwdsg${timestamp}${random}`;
+
+    quotaStore.codes[code] = {
+      quota: -1, // -1 表示无限
+      createTime: Date.now(),
+      type: 'unlimited', // 无限畅享兑换码
+      remark: remark || '' // 备注信息
+    };
+    newCodes.push(code);
+  }
+
+  saveQuotaData();
+
+  res.json({
+    success: true,
+    data: { codes: newCodes, type: 'unlimited' },
+    message: `成功生成 ${newCodes.length} 个无限畅享兑换码`
+  });
+});
+
 // [Admin] 获取所有兑换码
 app.get("/api/admin/codes", verifyAdminToken, (req, res) => {
   res.json({
     success: true,
     data: quotaStore.codes
+  });
+});
+
+// [Admin] 删除兑换码
+app.delete("/api/admin/codes/:code", verifyAdminToken, (req, res) => {
+  const { code } = req.params;
+
+  if (!quotaStore.codes[code]) {
+    return res.status(404).json({ success: false, message: "兑换码不存在" });
+  }
+
+  delete quotaStore.codes[code];
+  saveQuotaData();
+
+  res.json({
+    success: true,
+    message: `兑换码 ${code} 已删除`
+  });
+});
+
+// [Admin] 更新兑换码备注
+app.put("/api/admin/codes/:code/remark", verifyAdminToken, (req, res) => {
+  const { code } = req.params;
+  const { remark } = req.body;
+
+  if (!quotaStore.codes[code]) {
+    return res.status(404).json({ success: false, message: "兑换码不存在" });
+  }
+
+  quotaStore.codes[code].remark = remark || '';
+  saveQuotaData();
+
+  res.json({
+    success: true,
+    message: "备注已更新",
+    data: quotaStore.codes[code]
   });
 });
 
@@ -1025,21 +1153,40 @@ app.post("/api/user/redeem", async (req, res) => {
     }
   }
 
-  // 增加额度
-  quotaStore.users[userId].extraQuota = (quotaStore.users[userId].extraQuota || 0) + codeData.quota;
+  // 判断兑换码类型
+  if (codeData.type === 'unlimited' || codeData.quota === -1) {
+    // 无限畅享兑换码：直接设置用户为无限额度
+    quotaStore.users[userId].isUnlimited = true;
 
-  // 删除已使用的码
-  delete quotaStore.codes[cleanCode];
+    // 删除已使用的码
+    delete quotaStore.codes[cleanCode];
+    saveQuotaData();
 
-  saveQuotaData();
+    res.json({
+      success: true,
+      message: "🎉 恭喜！您已成功兑换无限畅享权益，现在可以无限使用识别功能了！",
+      data: {
+        isUnlimited: true,
+        totalExtra: quotaStore.users[userId].extraQuota || 0
+      }
+    });
+  } else {
+    // 普通额度兑换码：增加额度
+    quotaStore.users[userId].extraQuota = (quotaStore.users[userId].extraQuota || 0) + codeData.quota;
 
-  res.json({
-    success: true,
-    message: `兑换成功！增加了 ${codeData.quota} 次额度`,
-    data: {
-      totalExtra: quotaStore.users[userId].extraQuota
-    }
-  });
+    // 删除已使用的码
+    delete quotaStore.codes[cleanCode];
+    saveQuotaData();
+
+    res.json({
+      success: true,
+      message: `兑换成功！增加了 ${codeData.quota} 次额度`,
+      data: {
+        isUnlimited: false,
+        totalExtra: quotaStore.users[userId].extraQuota
+      }
+    });
+  }
 });
 
 // [User] 查询配额状态

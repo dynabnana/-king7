@@ -451,6 +451,19 @@
         <button class="btn btn-primary" onclick="generateCodes()" style="width: auto;">✨ 生成兑换码</button>
       </div>
 
+      <div class="actions-panel"
+        style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border-color: rgba(34, 197, 94, 0.3);">
+        <div class="form-group">
+          <label>无限畅享码数量</label>
+          <input type="number" id="unlimitedCodeCount" value="1" min="1" max="10">
+        </div>
+        <div class="form-group">
+          <label>备注信息 (可选)</label>
+          <input type="text" id="unlimitedCodeRemark" placeholder="例如：送给张三">
+        </div>
+        <button class="btn btn-success" onclick="generateUnlimitedCodes()" style="width: auto;">💎 生成无限畅享码</button>
+      </div>
+
       <div class="table-container">
         <div class="table-header">
           <h2>有效兑换码列表</h2>
@@ -462,6 +475,7 @@
               <tr>
                 <th>兑换码</th>
                 <th>额度</th>
+                <th>备注</th>
                 <th>创建时间</th>
                 <th>操作</th>
               </tr>
@@ -574,18 +588,27 @@
       const data = await res.json();
       if (data.success) {
         const tbody = document.getElementById('logsTableBody');
-        tbody.innerHTML = data.data.logs.map(log => `
+        tbody.innerHTML = data.data.logs.map(log => {
+          // 获取 IP 位置信息
+          const ipLocation = log.ipLocation ? log.ipLocation.location : log.ip;
+          const locationDetail = log.ipLocation
+            ? [log.ipLocation.province, log.ipLocation.city, log.ipLocation.district].filter(Boolean).join(' ')
+            : '';
+
+          return `
           <tr>
             <td>${new Date(log.timestamp).toLocaleString()}</td>
             <td>
-              <div style="font-weight:600;color:var(--text-primary)">${log.nickname || '匿名'}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${log.userId || log.ip}</div>
+              <div style="font-weight:600;color:var(--text-primary)">匿名</div>
+              <div style="font-size:12px;color:var(--text-secondary)">${log.ip}</div>
             </td>
             <td><span class="badge badge-accent">${log.apiType}</span></td>
             <td>第 ${log.cumulativeCount} 次</td>
-            <td style="font-size:12px;color:var(--text-secondary)">IP: ${log.ip}</td>
+            <td style="font-size:12px;color:var(--text-secondary)">
+              <div>📍 ${locationDetail || log.ip}</div>
+            </td>
           </tr>
-        `).join('');
+        `}).join('');
 
         // Simple pagination
         const totalPages = data.data.pagination.totalPages;
@@ -621,17 +644,30 @@
         const codes = Object.entries(data.data);
         const tbody = document.getElementById('codesTableBody');
         if (codes.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-secondary)">暂无未使用的兑换码</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无未使用的兑换码</td></tr>';
           return;
         }
-        tbody.innerHTML = codes.map(([code, info]) => `
+        tbody.innerHTML = codes.map(([code, info]) => {
+          const isUnlimited = info.type === 'unlimited' || info.quota === -1;
+          const quotaDisplay = isUnlimited
+            ? '<span class="badge badge-success">💎 无限畅享</span>'
+            : `<span class="badge badge-warning">${info.quota} 次</span>`;
+          const remarkDisplay = info.remark || '<span style="color:var(--text-secondary)">无</span>';
+          return `
           <tr>
             <td><span class="code-text">${code}</span></td>
-            <td><span class="badge badge-success">${info.quota} 次</span></td>
+            <td>${quotaDisplay}</td>
+            <td>
+              <span id="remark-${code}">${remarkDisplay}</span>
+              <button class="copy-btn" onclick="editCodeRemark('${code}')" style="margin-left:4px;">编辑</button>
+            </td>
             <td>${new Date(info.createTime).toLocaleDateString()}</td>
-            <td><button class="copy-btn" onclick="navigator.clipboard.writeText('${code}')">复制</button></td>
+            <td>
+              <button class="copy-btn" onclick="navigator.clipboard.writeText('${code}')">复制</button>
+              <button class="copy-btn" onclick="deleteCode('${code}')" style="margin-left:4px;color:var(--danger);">删除</button>
+            </td>
           </tr>
-        `).join('');
+        `}).join('');
       }
     }
 
@@ -652,6 +688,69 @@
       if (data.success) {
         alert(`成功生成 ${data.data.codes.length} 个兑换码！`);
         loadCodes();
+      }
+    }
+
+    async function generateUnlimitedCodes() {
+      const count = document.getElementById('unlimitedCodeCount').value;
+      const remark = document.getElementById('unlimitedCodeRemark').value;
+
+      const res = await fetch('/api/admin/codes/generate-unlimited', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ count, remark })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert(`🎉 成功生成 ${data.data.codes.length} 个无限畅享兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
+        document.getElementById('unlimitedCodeRemark').value = ''; // 清空备注输入框
+        loadCodes();
+      }
+    }
+
+    // 删除兑换码
+    async function deleteCode(code) {
+      if (!confirm(`确定要删除兑换码 ${code} 吗？`)) return;
+
+      const res = await fetch(`/api/admin/codes/${encodeURIComponent(code)}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${authToken}` }
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        alert('兑换码已删除');
+        loadCodes();
+      } else {
+        alert('删除失败: ' + data.message);
+      }
+    }
+
+    // 编辑兑换码备注
+    async function editCodeRemark(code) {
+      const currentRemark = document.getElementById(`remark-${code}`)?.textContent || '';
+      const newRemark = prompt('请输入新的备注信息:', currentRemark === '无' ? '' : currentRemark);
+
+      if (newRemark === null) return; // 用户取消
+
+      const res = await fetch(`/api/admin/codes/${encodeURIComponent(code)}/remark`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ remark: newRemark })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        loadCodes();
+      } else {
+        alert('更新失败: ' + data.message);
       }
     }
 
