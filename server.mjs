@@ -546,9 +546,16 @@ app.get("*", (req, res) => {
   res.sendFile(indexPath);
 });
 
-app.listen(port, () => {
-  console.log(`Server listening on port ${port}`);
-  console.log(
-    `Environment API Keys configured: ${ENV_API_KEYS.length > 0 ? ENV_API_KEYS.length : "None (will use request header)"}`
-  );
-});
+// 兼容性处理：
+// 1. Zeabur/本地开发：直接运行 node server.mjs，process.env.VERCEL 为空，执行 app.listen 启动端口监听
+// 2. Vercel：作为 Serverless 函数被导入，process.env.VERCEL 为 true，跳过 app.listen，由 Vercel 托管
+if (!process.env.VERCEL) {
+  app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+    console.log(
+      `Environment API Keys configured: ${ENV_API_KEYS.length > 0 ? ENV_API_KEYS.length : "None (will use request header)"}`
+    );
+  });
+}
+
+export default app;
