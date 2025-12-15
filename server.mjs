@@ -285,14 +285,17 @@ const loadQuotaData = async () => {
   }
 };
 
-// 保存配额数据
+// 保存配额数据（Redis 数据设置 21 天过期，防止存储爆满）
+const REDIS_DATA_TTL = 21 * 24 * 60 * 60; // 21 天（秒）
+
 const saveQuotaData = async () => {
-  // 优先保存到 Redis
+  // 优先保存到 Redis（带过期时间）
   if (USE_REDIS) {
     try {
       await Promise.all([
-        redisCommand('SET', 'quota:users', JSON.stringify(quotaStore.users)),
-        redisCommand('SET', 'quota:codes', JSON.stringify(quotaStore.codes))
+        // SETEX key seconds value - 设置值并指定过期时间
+        redisCommand('SETEX', 'quota:users', REDIS_DATA_TTL, JSON.stringify(quotaStore.users)),
+        redisCommand('SETEX', 'quota:codes', REDIS_DATA_TTL, JSON.stringify(quotaStore.codes))
       ]);
       return;
     } catch (err) {
