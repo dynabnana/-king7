@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>使用记录管理后台</title>
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-card: #1a1a24;
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0b0;
+      --accent: #6366f1;
+      --accent-glow: rgba(99, 102, 241, 0.3);
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      --border: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    /* 登录页面 */
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .login-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+    }
+
+    .login-box h1 {
+      font-size: 24px;
+      text-align: center;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #fff, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .login-box p {
+      text-align: center;
+      color: var(--text-secondary);
+      font-size: 14px;
+      margin-bottom: 32px;
+    }
+
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 14px;
+      color: var(--text-secondary);
+      margin-bottom: 8px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      font-size: 16px;
+      transition: all 0.2s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 30px var(--accent-glow);
+    }
+
+    .btn-danger {
+      background: var(--danger);
+      color: white;
+    }
+
+    .error-message {
+      color: var(--danger);
+      text-align: center;
+      margin-top: 16px;
+      font-size: 14px;
+    }
+
+    /* 主界面 */
+    .dashboard {
+      display: none;
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .dashboard.active {
+      display: block;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 32px;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+
+    .header h1 {
+      font-size: 28px;
+      background: linear-gradient(135deg, #fff, var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn-sm {
+      padding: 10px 20px;
+      font-size: 14px;
+      border-radius: 8px;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-primary);
+    }
+
+    .btn-outline:hover {
+      background: var(--bg-card);
+    }
+
+    /* 统计卡片 */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--accent), #8b5cf6);
+    }
+
+    .stat-card h3 {
+      font-size: 13px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 8px;
+    }
+
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* 表格 */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .table-header h2 {
+      font-size: 18px;
+    }
+
+    .table-wrapper {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 16px 24px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--bg-secondary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    td {
+      font-size: 14px;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(99, 102, 241, 0.05);
+    }
+
+    .nickname {
+      font-weight: 600;
+      color: var(--accent);
+    }
+
+    .ip-address {
+      font-family: 'SF Mono', Monaco, Consolas, monospace;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .timestamp {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      padding: 4px 10px;
+      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .api-type {
+      display: inline-block;
+      padding: 4px 10px;
+      background: var(--bg-secondary);
+      border-radius: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* 分页 */
+    .pagination {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      padding: 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    .pagination button {
+      padding: 8px 16px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .pagination button:hover:not(:disabled) {
+      background: var(--accent);
+    }
+
+    .pagination button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .pagination span {
+      color: var(--text-secondary);
+      font-size: 14px;
+    }
+
+    /* 加载状态 */
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 60px;
+      color: var(--text-secondary);
+    }
+
+    .spinner {
+      width: 24px;
+      height: 24px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-right: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 空状态 */
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: var(--text-secondary);
+    }
+
+    .empty-state svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+      opacity: 0.5;
+    }
+
+    /* 响应式 */
+    @media (max-width: 768px) {
+      .dashboard {
+        padding: 16px;
+      }
+
+      .header h1 {
+        font-size: 22px;
+      }
+
+      th, td {
+        padding: 12px 16px;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- 登录页面 -->
+  <div class="login-container" id="loginPage">
+    <div class="login-box">
+      <h1>🔐 管理后台</h1>
+      <p>检查单识别助手 - 使用记录管理</p>
+      <form id="loginForm">
+        <div class="form-group">
+          <label for="password">管理密码</label>
+          <input type="password" id="password" placeholder="请输入管理密码" required>
+        </div>
+        <button type="submit" class="btn btn-primary">登录</button>
+        <p class="error-message" id="errorMessage" style="display: none;"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- 主界面 -->
+  <div class="dashboard" id="dashboard">
+    <div class="header">
+      <h1>📊 使用记录管理</h1>
+      <div class="header-actions">
+        <button class="btn btn-sm btn-outline" onclick="refreshData()">🔄 刷新</button>
+        <button class="btn btn-sm btn-outline btn-danger" onclick="logout()">退出登录</button>
+      </div>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <h3>总使用次数</h3>
+        <div class="value" id="statTotalCalls">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>总用户数</h3>
+        <div class="value" id="statTotalUsers">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>今日使用</h3>
+        <div class="value" id="statTodayCalls">-</div>
+      </div>
+      <div class="stat-card">
+        <h3>存储状态</h3>
+        <div class="value" id="statStorage">-</div>
+      </div>
+    </div>
+
+    <!-- 使用记录表格 -->
+    <div class="table-container">
+      <div class="table-header">
+        <h2>使用记录明细</h2>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>时间</th>
+              <th>微信昵称</th>
+              <th>IP 地址</th>
+              <th>API 类型</th>
+              <th>累计次数</th>
+            </tr>
+          </thead>
+          <tbody id="logsTableBody">
+            <tr>
+              <td colspan="5" class="loading">
+                <div class="spinner"></div>
+                加载中...
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+
+  <script>
+    // 状态管理
+    let authToken = localStorage.getItem('adminToken');
+    let currentPage = 1;
+    const pageSize = 50;
+
+    // 初始化
+    document.addEventListener('DOMContentLoaded', () => {
+      if (authToken) {
+        showDashboard();
+        loadData();
+      }
+    });
+
+    // 登录表单处理
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const password = document.getElementById('password').value;
+      const errorEl = document.getElementById('errorMessage');
+
+      try {
+        const res = await fetch('/api/admin/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          authToken = data.token;
+          localStorage.setItem('adminToken', authToken);
+          showDashboard();
+          loadData();
+        } else {
+          errorEl.textContent = data.message || '登录失败';
+          errorEl.style.display = 'block';
+        }
+      } catch (err) {
+        errorEl.textContent = '网络错误，请重试';
+        errorEl.style.display = 'block';
+      }
+    });
+
+    // 显示主界面
+    function showDashboard() {
+      document.getElementById('loginPage').style.display = 'none';
+      document.getElementById('dashboard').classList.add('active');
+    }
+
+    // 退出登录
+    function logout() {
+      authToken = null;
+      localStorage.removeItem('adminToken');
+      location.reload();
+    }
+
+    // 加载数据
+    async function loadData() {
+      await Promise.all([loadStats(), loadLogs()]);
+    }
+
+    // 刷新数据
+    function refreshData() {
+      loadData();
+    }
+
+    // 加载统计数据
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/admin/user-stats', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (res.status === 401) {
+          logout();
+          return;
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('statTotalCalls').textContent = data.data.totalCalls;
+          document.getElementById('statTotalUsers').textContent = data.data.totalUsers;
+          
+          // 计算今日使用次数
+          const today = new Date().toISOString().split('T')[0];
+          // 这里简化处理，实际可以在 API 返回
+          document.getElementById('statTodayCalls').textContent = '-';
+          document.getElementById('statStorage').textContent = '正常';
+        }
+      } catch (err) {
+        console.error('加载统计失败:', err);
+      }
+    }
+
+    // 加载日志
+    async function loadLogs() {
+      const tbody = document.getElementById('logsTableBody');
+      tbody.innerHTML = `<tr><td colspan="5" class="loading"><div class="spinner"></div>加载中...</td></tr>`;
+
+      try {
+        const res = await fetch(`/api/admin/usage-logs?page=${currentPage}&pageSize=${pageSize}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+
+        if (res.status === 401) {
+          logout();
+          return;
+        }
+
+        const data = await res.json();
+        if (data.success) {
+          renderLogs(data.data.logs);
+          renderPagination(data.data.pagination);
+
+          // 计算今日使用
+          const today = new Date().toISOString().split('T')[0];
+          const todayCount = data.data.logs.filter(log => log.timestamp.startsWith(today)).length;
+          document.getElementById('statTodayCalls').textContent = todayCount;
+        }
+      } catch (err) {
+        console.error('加载日志失败:', err);
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">加载失败，请刷新重试</td></tr>`;
+      }
+    }
+
+    // 渲染日志表格
+    function renderLogs(logs) {
+      const tbody = document.getElementById('logsTableBody');
+
+      if (!logs || logs.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="5" class="empty-state">暂无使用记录</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = logs.map(log => {
+        const date = new Date(log.timestamp);
+        const timeStr = date.toLocaleString('zh-CN', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        });
+
+        const nickname = log.nickname || '<span style="color: var(--text-secondary)">未授权</span>';
+        const apiTypeLabels = {
+          'image-base64': '图片识别',
+          'image': '图片识别',
+          'excel-header': 'Excel分析'
+        };
+
+        return `
+          <tr>
+            <td class="timestamp">${timeStr}</td>
+            <td class="nickname">${nickname}</td>
+            <td class="ip-address">${log.ip || '-'}</td>
+            <td><span class="api-type">${apiTypeLabels[log.apiType] || log.apiType}</span></td>
+            <td><span class="count-badge">${log.cumulativeCount}</span></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // 渲染分页
+    function renderPagination(pagination) {
+      const { page, totalPages, total } = pagination;
+      const container = document.getElementById('pagination');
+
+      if (totalPages <= 1) {
+        container.innerHTML = `<span>共 ${total} 条记录</span>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <button ${page <= 1 ? 'disabled' : ''} onclick="goToPage(${page - 1})">上一页</button>
+        <span>第 ${page} / ${totalPages} 页，共 ${total} 条</span>
+        <button ${page >= totalPages ? 'disabled' : ''} onclick="goToPage(${page + 1})">下一页</button>
+      `;
+    }
+
+    // 翻页
+    function goToPage(page) {
+      currentPage = page;
+      loadLogs();
+    }
+  </script>
+</body>
+</html>

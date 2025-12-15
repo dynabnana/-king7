@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import path from "path";
+import fs from "fs";
 
 // 延迟加载 GoogleGenAI 以减少空闲内存
 let GoogleGenAI = null;
@@ -21,6 +22,13 @@ const upload = multer({
 
 const port = process.env.PORT || 3000;
 
+// 管理后台密码（可通过环境变量覆盖）
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "600606";
+
+// 数据存储目录（Zeabur 挂载硬盘路径）
+const DATA_DIR = process.env.DATA_DIR || "/data";
+const USAGE_LOG_FILE = path.join(DATA_DIR, "usage_logs.json");
+
 // 从环境变量读取 API Keys（支持多个，用逗号分隔）
 const ENV_API_KEYS = (process.env.GEMINI_API_KEY || "")
   .split(",")
@@ -34,6 +42,101 @@ const MODEL_NAME = "gemini-2.5-flash";
 // 客户端缓存（按需创建，空闲时清理）
 let clientCache = new Map();
 let lastRequestTime = Date.now();
+
+// ========== 用户使用记录系统 ==========
+// 内存中的使用记录缓存
+let usageLogs = [];
+let userStats = new Map(); // 用户累计次数统计
+
+// 初始化数据目录和加载历史记录
+const initDataStorage = () => {
+  try {
+    // 检查数据目录是否存在
+    if (!fs.existsSync(DATA_DIR)) {
+      console.log(`[Storage] Data directory ${DATA_DIR} does not exist, using memory only`);
+      return;
+    }
+
+    // 尝试加载历史记录
+    if (fs.existsSync(USAGE_LOG_FILE)) {
+      const data = fs.readFileSync(USAGE_LOG_FILE, "utf-8");
+      const parsed = JSON.parse(data);
+      usageLogs = parsed.logs || [];
+
+      // 重建用户统计
+      usageLogs.forEach(log => {
+        const key = log.nickname || log.userId || "anonymous";
+        userStats.set(key, (userStats.get(key) || 0) + 1);
+      });
+
+      console.log(`[Storage] Loaded ${usageLogs.length} usage logs from disk`);
+    }
+  } catch (err) {
+    console.error("[Storage] Failed to load usage logs:", err.message);
+  }
+};
+
+// 保存使用记录到磁盘
+const saveUsageLogs = () => {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      return; // 目录不存在，跳过保存
+    }
+
+    const data = JSON.stringify({
+      lastUpdated: new Date().toISOString(),
+      totalLogs: usageLogs.length,
+      logs: usageLogs
+    }, null, 2);
+
+    fs.writeFileSync(USAGE_LOG_FILE, data, "utf-8");
+  } catch (err) {
+    console.error("[Storage] Failed to save usage logs:", err.message);
+  }
+};
+
+// 记录用户使用
+const logUserUsage = (req, apiType, extra = {}) => {
+  const { nickname, userId } = req.body || {};
+
+  // 获取用户IP
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim()
+    || req.headers["x-real-ip"]
+    || req.socket?.remoteAddress
+    || "unknown";
+
+  const userKey = nickname || userId || ip;
+  const count = (userStats.get(userKey) || 0) + 1;
+  userStats.set(userKey, count);
+
+  const logEntry = {
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
+    timestamp: new Date().toISOString(),
+    nickname: nickname || null,
+    userId: userId || null,
+    ip: ip,
+    apiType: apiType,
+    cumulativeCount: count,
+    ...extra
+  };
+
+  usageLogs.push(logEntry);
+
+  // 限制内存中的记录数量（保留最近1000条）
+  if (usageLogs.length > 1000) {
+    usageLogs = usageLogs.slice(-1000);
+  }
+
+  // 异步保存到磁盘
+  setImmediate(saveUsageLogs);
+
+  console.log(`[Usage] ${nickname || userId || "匿名"} (${ip}) - ${apiType} - 第${count}次使用`);
+
+  return logEntry;
+};
+
+// 初始化存储
+initDataStorage();
 
 // ========== API 调用次数统计 ==========
 let apiCallStats = {
@@ -419,6 +522,12 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     apiCallStats.imageBase64Analyze++;
     apiCallStats.totalCalls++;
 
+    // 记录用户使用（小程序端需要传递 nickname 字段）
+    logUserUsage(req, "image-base64", {
+      itemsCount: data.items?.length || 0,
+      title: data.title || null
+    });
+
     return res.json(data);
   } catch (err) {
     console.error("Image base64 analyze error:", err);
@@ -583,9 +692,144 @@ app.get("/api/health", (req, res) => {
 });
 
 // ===========================================
+// 管理后台 API - 密码验证
+// ===========================================
+app.post("/api/admin/login", (req, res) => {
+  const { password } = req.body || {};
+
+  if (password === ADMIN_PASSWORD) {
+    res.json({
+      success: true,
+      message: "登录成功",
+      // 返回一个简单的 token（基于时间戳，24小时有效）
+      token: Buffer.from(`admin:${Date.now()}`).toString("base64")
+    });
+  } else {
+    res.status(401).json({
+      success: false,
+      message: "密码错误"
+    });
+  }
+});
+
+// 验证管理员 token 中间件
+const verifyAdminToken = (req, res, next) => {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "未授权访问" });
+  }
+
+  try {
+    const token = authHeader.substring(7);
+    const decoded = Buffer.from(token, "base64").toString("utf-8");
+    const [prefix, timestamp] = decoded.split(":");
+
+    if (prefix !== "admin") {
+      return res.status(401).json({ success: false, message: "无效的令牌" });
+    }
+
+    // 检查 token 是否过期（24小时）
+    const tokenAge = Date.now() - parseInt(timestamp);
+    if (tokenAge > 24 * 60 * 60 * 1000) {
+      return res.status(401).json({ success: false, message: "令牌已过期，请重新登录" });
+    }
+
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, message: "令牌验证失败" });
+  }
+};
+
+// ===========================================
+// 管理后台 API - 获取使用记录
+// ===========================================
+app.get("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const pageSize = parseInt(req.query.pageSize) || 50;
+
+  // 按时间倒序排列
+  const sortedLogs = [...usageLogs].reverse();
+
+  const start = (page - 1) * pageSize;
+  const end = start + pageSize;
+  const paginatedLogs = sortedLogs.slice(start, end);
+
+  res.json({
+    success: true,
+    data: {
+      logs: paginatedLogs,
+      pagination: {
+        page,
+        pageSize,
+        total: usageLogs.length,
+        totalPages: Math.ceil(usageLogs.length / pageSize)
+      }
+    }
+  });
+});
+
+// ===========================================
+// 管理后台 API - 获取用户统计汇总
+// ===========================================
+app.get("/api/admin/user-stats", verifyAdminToken, (req, res) => {
+  // 按用户汇总统计
+  const userSummary = [];
+  const userLastSeen = new Map();
+
+  // 遍历所有记录，获取每个用户的最后使用时间
+  usageLogs.forEach(log => {
+    const key = log.nickname || log.userId || log.ip;
+    userLastSeen.set(key, log.timestamp);
+  });
+
+  // 构建汇总数据
+  userStats.forEach((count, userKey) => {
+    userSummary.push({
+      user: userKey,
+      totalCalls: count,
+      lastSeen: userLastSeen.get(userKey) || null
+    });
+  });
+
+  // 按调用次数倒序
+  userSummary.sort((a, b) => b.totalCalls - a.totalCalls);
+
+  res.json({
+    success: true,
+    data: {
+      totalUsers: userSummary.length,
+      totalCalls: usageLogs.length,
+      users: userSummary
+    }
+  });
+});
+
+// ===========================================
+// 管理后台 API - 清除记录（谨慎使用）
+// ===========================================
+app.delete("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
+  const previousCount = usageLogs.length;
+  usageLogs = [];
+  userStats.clear();
+  saveUsageLogs();
+
+  res.json({
+    success: true,
+    message: `已清除 ${previousCount} 条记录`
+  });
+});
+
+// ===========================================
 // 静态文件服务（生产环境）
 // ===========================================
 app.use(express.static("dist"));
+
+// 管理后台页面路由
+app.get("/admin", (req, res) => {
+  const adminPath = path.join(process.cwd(), "admin.html");
+  res.sendFile(adminPath);
+});
 
 app.get("*", (req, res) => {
   const indexPath = path.join(process.cwd(), "dist", "index.html");
