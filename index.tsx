@@ -49,6 +49,19 @@ declare global {
   }
 }
 
+// API 统计数据接口
+interface ApiStats {
+  imageAnalyze: number;
+  imageBase64Analyze: number;
+  excelAnalyze: number;
+  totalCalls: number;
+  uptime: {
+    hours: number;
+    minutes: number;
+    display: string;
+  };
+}
+
 // --- Helper Functions ---
 
 // --- Components ---
@@ -176,6 +189,7 @@ const App = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [apiKeys, setApiKeys] = useState<string[]>([]);
   const [activeKeyIndex, setActiveKeyIndex] = useState(0);
+  const [apiStats, setApiStats] = useState<ApiStats | null>(null);
 
   useEffect(() => {
     const savedKeys = localStorage.getItem('gemini_api_keys');
@@ -191,6 +205,28 @@ const App = () => {
     localStorage.setItem('gemini_api_keys', JSON.stringify(apiKeys));
     localStorage.setItem('gemini_active_key_index', String(activeKeyIndex));
   }, [apiKeys, activeKeyIndex]);
+
+  // 获取 API 统计数据
+  const fetchApiStats = async () => {
+    try {
+      const resp = await fetch('/api/stats');
+      if (resp.ok) {
+        const data = await resp.json();
+        if (data.success) {
+          setApiStats(data.stats);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch API stats:', err);
+    }
+  };
+
+  // 初始加载和定期刷新统计数据
+  useEffect(() => {
+    fetchApiStats();
+    const interval = setInterval(fetchApiStats, 30000); // 每30秒刷新
+    return () => clearInterval(interval);
+  }, []);
 
   // File input refs
   const imgInputRef = useRef<HTMLInputElement>(null);
@@ -308,6 +344,7 @@ const App = () => {
 
     const data = await resp.json();
     addRecordsFromData([data]);
+    fetchApiStats(); // 刷新调用统计
   };
 
   const processExcel = async (file: File) => {
@@ -574,6 +611,44 @@ const App = () => {
             </div>
           </div>
           <div className="flex items-center space-x-3">
+            {/* API 调用统计 */}
+            {apiStats && (
+              <div className="hidden sm:flex items-center gap-2 bg-gradient-to-r from-purple-50 to-blue-50 px-3 py-2 rounded-xl border border-purple-100 group relative cursor-default">
+                <div className="flex items-center gap-1.5">
+                  <i className="fa-solid fa-chart-simple text-purple-500 text-sm"></i>
+                  <span className="text-sm font-semibold text-purple-700">{apiStats.totalCalls}</span>
+                  <span className="text-xs text-gray-500">次调用</span>
+                </div>
+                {/* 悬停详情 */}
+                <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-4 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-30 min-w-[200px]">
+                  <div className="text-xs font-bold text-gray-700 mb-3 pb-2 border-b border-gray-100">API 调用统计</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <i className="fa-solid fa-image text-blue-400"></i>图片识别 (网页)
+                      </span>
+                      <span className="text-sm font-bold text-gray-700">{apiStats.imageAnalyze}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <i className="fa-solid fa-mobile-screen text-green-400"></i>图片识别 (小程序)
+                      </span>
+                      <span className="text-sm font-bold text-gray-700">{apiStats.imageBase64Analyze}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500 flex items-center gap-1.5">
+                        <i className="fa-solid fa-file-excel text-emerald-400"></i>Excel 分析
+                      </span>
+                      <span className="text-sm font-bold text-gray-700">{apiStats.excelAnalyze}</span>
+                    </div>
+                  </div>
+                  <div className="mt-3 pt-2 border-t border-gray-100 flex justify-between items-center">
+                    <span className="text-xs text-gray-400">运行时间</span>
+                    <span className="text-xs text-gray-500">{apiStats.uptime.display}</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <button
               onClick={() => setShowSettings(true)}
               className="w-10 h-10 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors flex items-center justify-center"

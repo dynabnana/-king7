@@ -35,6 +35,15 @@ const MODEL_NAME = "gemini-2.5-flash";
 let clientCache = new Map();
 let lastRequestTime = Date.now();
 
+// ========== API 调用次数统计 ==========
+let apiCallStats = {
+  imageAnalyze: 0,      // 图片识别（multipart）
+  imageBase64Analyze: 0, // 图片识别（base64）
+  excelAnalyze: 0,      // Excel表头分析
+  totalCalls: 0,        // 总调用次数
+  startTime: Date.now() // 服务启动时间
+};
+
 // ========== 并发控制 ==========
 // 限制同时处理的请求数，防止内存飙升
 const MAX_CONCURRENT_REQUESTS = 2; // 最多同时处理2个请求
@@ -320,6 +329,10 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
       });
     }
 
+    // 统计成功调用
+    apiCallStats.imageAnalyze++;
+    apiCallStats.totalCalls++;
+
     return res.json(data);
   } catch (err) {
     console.error("Image analyze error:", err);
@@ -402,6 +415,10 @@ app.post("/api/analyze/image-base64", async (req, res) => {
       });
     }
 
+    // 统计成功调用
+    apiCallStats.imageBase64Analyze++;
+    apiCallStats.totalCalls++;
+
     return res.json(data);
   } catch (err) {
     console.error("Image base64 analyze error:", err);
@@ -479,6 +496,10 @@ app.post("/api/analyze/excel-header", async (req, res) => {
       });
     }
 
+    // 统计成功调用
+    apiCallStats.excelAnalyze++;
+    apiCallStats.totalCalls++;
+
     return res.json(mapData);
   } catch (err) {
     console.error("Excel header analyze error:", err);
@@ -503,6 +524,31 @@ app.post("/api/analyze/excel-header", async (req, res) => {
       message,
     });
   }
+});
+
+// ===========================================
+// API 端点：获取调用统计
+// ===========================================
+app.get("/api/stats", (req, res) => {
+  const uptimeMs = Date.now() - apiCallStats.startTime;
+  const uptimeHours = Math.floor(uptimeMs / (1000 * 60 * 60));
+  const uptimeMinutes = Math.floor((uptimeMs % (1000 * 60 * 60)) / (1000 * 60));
+
+  res.json({
+    success: true,
+    stats: {
+      imageAnalyze: apiCallStats.imageAnalyze,
+      imageBase64Analyze: apiCallStats.imageBase64Analyze,
+      excelAnalyze: apiCallStats.excelAnalyze,
+      totalCalls: apiCallStats.totalCalls,
+      uptime: {
+        hours: uptimeHours,
+        minutes: uptimeMinutes,
+        display: `${uptimeHours}小时${uptimeMinutes}分钟`
+      },
+      startTime: apiCallStats.startTime
+    }
+  });
 });
 
 // ===========================================
