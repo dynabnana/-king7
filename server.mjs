@@ -377,7 +377,7 @@ const checkAndConsumeQuota = (userId, nickname) => {
   return { allowed: false, reason: "quota_exceeded", remaining: 0, isUnlimited: false };
 };
 
-// ========== API 调用次数统计 ==========
+// ========== API 调用次数统计（Redis 持久化）==========
 let apiCallStats = {
   imageAnalyze: 0,      // 图片识别（multipart）
   imageBase64Analyze: 0, // 图片识别（base64）
@@ -385,6 +385,63 @@ let apiCallStats = {
   totalCalls: 0,        // 总调用次数
   startTime: Date.now() // 服务启动时间
 };
+
+// 从 Redis 加载调用统计
+const loadApiStats = async () => {
+  if (!USE_REDIS) return;
+
+  try {
+    const statsData = await redisCommand('GET', 'api:stats');
+    if (statsData) {
+      const saved = JSON.parse(statsData);
+      // 合并已保存的统计数据，保留当前启动时间
+      apiCallStats.imageAnalyze = saved.imageAnalyze || 0;
+      apiCallStats.imageBase64Analyze = saved.imageBase64Analyze || 0;
+      apiCallStats.excelAnalyze = saved.excelAnalyze || 0;
+      apiCallStats.totalCalls = saved.totalCalls || 0;
+      console.log(`[Redis] Loaded API stats: ${apiCallStats.totalCalls} total calls`);
+    }
+  } catch (err) {
+    console.error("[Redis] Failed to load API stats:", err.message);
+  }
+};
+
+// 保存调用统计到 Redis
+const saveApiStats = async () => {
+  if (!USE_REDIS) return;
+
+  try {
+    await redisCommand('SETEX', 'api:stats', REDIS_DATA_TTL, JSON.stringify({
+      imageAnalyze: apiCallStats.imageAnalyze,
+      imageBase64Analyze: apiCallStats.imageBase64Analyze,
+      excelAnalyze: apiCallStats.excelAnalyze,
+      totalCalls: apiCallStats.totalCalls,
+      lastUpdated: new Date().toISOString()
+    }));
+  } catch (err) {
+    console.error("[Redis] Failed to save API stats:", err.message);
+  }
+};
+
+// 增加调用统计并保存
+const incrementApiStats = async (type) => {
+  if (type === 'image') {
+    apiCallStats.imageAnalyze++;
+  } else if (type === 'image-base64') {
+    apiCallStats.imageBase64Analyze++;
+  } else if (type === 'excel') {
+    apiCallStats.excelAnalyze++;
+  }
+  apiCallStats.totalCalls++;
+
+  // 异步保存到 Redis（不阻塞主流程）
+  setImmediate(() => saveApiStats());
+};
+
+// 初始化时加载统计数据
+(async () => {
+  await loadApiStats();
+})();
 
 // ========== 并发控制 ==========
 // 限制同时处理的请求数，防止内存飙升
@@ -671,9 +728,8 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
       });
     }
 
-    // 统计成功调用
-    apiCallStats.imageAnalyze++;
-    apiCallStats.totalCalls++;
+    // 统计成功调用（保存到 Redis）
+    incrementApiStats('image');
 
     return res.json(data);
   } catch (err) {
@@ -772,9 +828,8 @@ app.post("/api/analyze/image-base64", async (req, res) => {
       });
     }
 
-    // 统计成功调用
-    apiCallStats.imageBase64Analyze++;
-    apiCallStats.totalCalls++;
+    // 统计成功调用（保存到 Redis）
+    incrementApiStats('image-base64');
 
     // 记录用户使用（小程序端需要传递 nickname 字段）
     logUserUsage(req, "image-base64", {
@@ -859,9 +914,8 @@ app.post("/api/analyze/excel-header", async (req, res) => {
       });
     }
 
-    // 统计成功调用
-    apiCallStats.excelAnalyze++;
-    apiCallStats.totalCalls++;
+    // 统计成功调用（保存到 Redis）
+    incrementApiStats('excel');
 
     return res.json(mapData);
   } catch (err) {
