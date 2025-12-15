@@ -138,6 +138,103 @@ const logUserUsage = (req, apiType, extra = {}) => {
 // 初始化存储
 initDataStorage();
 
+// ========== 用户配额与兑换码系统 ==========
+const QUOTA_FILE = path.join(DATA_DIR, "user_quotas.json");
+let quotaStore = {
+  users: {}, // userId -> { weeklyUsage, currentWeek, extraQuota, isUnlimited, nickname }
+  codes: {}  // code -> { quota, createTime }
+};
+
+// 工具函数：获取当前周标识 (e.g. "2025-W51")
+const getCurrentWeekId = () => {
+  const now = new Date();
+  const onejan = new Date(now.getFullYear(), 0, 1);
+  const week = Math.ceil((((now - onejan) / 86400000) + onejan.getDay() + 1) / 7);
+  return `${now.getFullYear()}-W${week}`;
+};
+
+// 加载配额数据
+const loadQuotaData = () => {
+  try {
+    if (fs.existsSync(QUOTA_FILE)) {
+      const data = fs.readFileSync(QUOTA_FILE, "utf-8");
+      // 简单合并，防止覆盖内存中已有的结构
+      const parsed = JSON.parse(data);
+      quotaStore = { ...quotaStore, ...parsed };
+      console.log(`[Quota] Loaded ${Object.keys(quotaStore.users).length} users and ${Object.keys(quotaStore.codes).length} codes`);
+    }
+  } catch (err) {
+    console.error("[Quota] Failed to load quota data:", err.message);
+  }
+};
+
+// 保存配额数据
+const saveQuotaData = () => {
+  try {
+    if (!fs.existsSync(DATA_DIR)) return;
+    fs.writeFileSync(QUOTA_FILE, JSON.stringify(quotaStore, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[Quota] Failed to save quota data:", err.message);
+  }
+};
+
+// 初始化配额数据
+loadQuotaData();
+
+// 检查并扣除配额
+// 返回: { allowed: boolean, reason: string, remaining: number, isUnlimited: boolean }
+const checkAndConsumeQuota = (userId, nickname) => {
+  if (!userId) {
+    // 如果没有用户ID，暂时允许（或根据需求拒绝），这里假设必须有ID
+    // 对于网页端匿名用户，可以用IP作为ID
+    return { allowed: true, reason: "anonymous", remaining: 1, isUnlimited: false };
+  }
+
+  // 初始化用户数据
+  if (!quotaStore.users[userId]) {
+    quotaStore.users[userId] = {
+      weeklyUsage: 0,
+      currentWeek: getCurrentWeekId(),
+      extraQuota: 0,
+      isUnlimited: false,
+      nickname: nickname || "未命名"
+    };
+  }
+
+  const user = quotaStore.users[userId];
+
+  // 更新昵称
+  if (nickname) user.nickname = nickname;
+
+  // 检查是否无限额度
+  if (user.isUnlimited) {
+    return { allowed: true, reason: "unlimited", remaining: 9999, isUnlimited: true };
+  }
+
+  // 检查周重置
+  const thisWeek = getCurrentWeekId();
+  if (user.currentWeek !== thisWeek) {
+    user.currentWeek = thisWeek;
+    user.weeklyUsage = 0;
+  }
+
+  // 1. 检查周免费额度 (每周5次)
+  if (user.weeklyUsage < 5) {
+    user.weeklyUsage++;
+    saveQuotaData(); // 异步保存建议用防抖，这里为安全直接保存
+    return { allowed: true, reason: "weekly_free", remaining: 5 - user.weeklyUsage, isUnlimited: false };
+  }
+
+  // 2. 检查额外额度 (兑换码)
+  if (user.extraQuota > 0) {
+    user.extraQuota--;
+    saveQuotaData();
+    return { allowed: true, reason: "extra_quota", remaining: user.extraQuota, isUnlimited: false };
+  }
+
+  return { allowed: false, reason: "quota_exceeded", remaining: 0, isUnlimited: false };
+};
+
 // ========== API 调用次数统计 ==========
 let apiCallStats = {
   imageAnalyze: 0,      // 图片识别（multipart）
@@ -473,7 +570,22 @@ app.post("/api/analyze/image-base64", async (req, res) => {
   await acquireSlot();
 
   try {
-    const { base64, mimeType } = req.body || {};
+    const { base64, mimeType, userId, nickname } = req.body || {};
+
+    // ----- 配额检查 START -----
+    // 优先使用 userId，如果没有则尝试用 IP (不推荐，小程序应传 userId/openid)
+    const userIdentifier = userId || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "anonymous_user";
+
+    const quotaResult = checkAndConsumeQuota(userIdentifier, nickname);
+    if (!quotaResult.allowed) {
+      return res.status(403).json({
+        error: "QUOTA_EXCEEDED",
+        message: "本周免费额度已用完，请联系管理员获取兑换码。",
+        quota: quotaResult
+      });
+    }
+    // ----- 配额检查 END -----
+
     if (!base64) {
       return res.status(400).json({ error: "base64 is required" });
     }
@@ -817,6 +929,143 @@ app.delete("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
   res.json({
     success: true,
     message: `已清除 ${previousCount} 条记录`
+  });
+});
+
+// ===========================================
+// 配额管理 API (Admin & User)
+// ===========================================
+
+// [Admin] 生成兑换码
+app.post("/api/admin/codes/generate", verifyAdminToken, (req, res) => {
+  const { amount, count } = req.body; // amount: 每个码的额度, count: 生成数量
+  const quotaAmount = parseInt(amount) || 10;
+  const generateCount = parseInt(count) || 1;
+
+  const newCodes = [];
+  for (let i = 0; i < generateCount; i++) {
+    const code = "PRO-" + Math.random().toString(36).substr(2, 6).toUpperCase() + Math.random().toString(36).substr(2, 2).toUpperCase();
+    quotaStore.codes[code] = {
+      quota: quotaAmount,
+      createTime: Date.now()
+    };
+    newCodes.push(code);
+  }
+
+  saveQuotaData();
+
+  res.json({
+    success: true,
+    data: { codes: newCodes, quota: quotaAmount }
+  });
+});
+
+// [Admin] 获取所有兑换码
+app.get("/api/admin/codes", verifyAdminToken, (req, res) => {
+  res.json({
+    success: true,
+    data: quotaStore.codes
+  });
+});
+
+// [Admin] 获取用户配额列表
+app.get("/api/admin/quota/users", verifyAdminToken, (req, res) => {
+  // 转换为数组返回
+  const userList = Object.entries(quotaStore.users).map(([id, data]) => ({
+    id,
+    ...data
+  }));
+  res.json({ success: true, data: userList });
+});
+
+// [Admin] 设置用户无限额度
+app.post("/api/admin/users/unlimited", verifyAdminToken, (req, res) => {
+  const { userId, isUnlimited } = req.body;
+
+  if (!userId || !quotaStore.users[userId]) {
+    return res.status(404).json({ success: false, message: "用户不存在或未初始化" });
+  }
+
+  quotaStore.users[userId].isUnlimited = !!isUnlimited;
+  saveQuotaData();
+
+  res.json({ success: true, data: quotaStore.users[userId] });
+});
+
+// [User] 兑换额度
+app.post("/api/user/redeem", async (req, res) => {
+  // 小程序请求时带上 code 和 userId
+  const { code, userId, nickname } = req.body;
+
+  if (!code || !userId) {
+    return res.status(400).json({ success: false, message: "缺少参数" });
+  }
+
+  const cleanCode = code.trim().toUpperCase();
+
+  if (!quotaStore.codes[cleanCode]) {
+    return res.status(404).json({ success: false, message: "无效的兑换码" });
+  }
+
+  const codeData = quotaStore.codes[cleanCode];
+
+  // 初始化用户如果不存在
+  if (!quotaStore.users[userId]) {
+    checkAndConsumeQuota(userId, nickname); // 初始化副作用，不消耗因为只是初始化
+    // 恢复因上面调用可能导致的消耗（实际上上面的函数只有在 checks 后才消耗，但初始化逻辑耦合在里面了）
+    // 更安全的做法是手动初始化：
+    if (!quotaStore.users[userId]) {
+      quotaStore.users[userId] = {
+        weeklyUsage: 0,
+        currentWeek: getCurrentWeekId(),
+        extraQuota: 0,
+        isUnlimited: false,
+        nickname: nickname || "未命名"
+      };
+    }
+  }
+
+  // 增加额度
+  quotaStore.users[userId].extraQuota = (quotaStore.users[userId].extraQuota || 0) + codeData.quota;
+
+  // 删除已使用的码
+  delete quotaStore.codes[cleanCode];
+
+  saveQuotaData();
+
+  res.json({
+    success: true,
+    message: `兑换成功！增加了 ${codeData.quota} 次额度`,
+    data: {
+      totalExtra: quotaStore.users[userId].extraQuota
+    }
+  });
+});
+
+// [User] 查询配额状态
+app.get("/api/user/quota", (req, res) => {
+  const { userId } = req.query;
+  if (!userId || !quotaStore.users[userId]) {
+    return res.json({
+      success: true,
+      data: { weeklyUsage: 0, weeklyLimit: 5, extraQuota: 0, isUnlimited: false }
+    });
+  }
+
+  const user = quotaStore.users[userId];
+  const thisWeek = getCurrentWeekId();
+
+  // 如果是旧的周，显示0使用量（虽然只有在该用户请求识别时才真正重置，但查询时应显示准确的“剩余”）
+  const weeklyUsage = (user.currentWeek === thisWeek) ? user.weeklyUsage : 0;
+
+  res.json({
+    success: true,
+    data: {
+      weeklyUsage: weeklyUsage,
+      weeklyLimit: 5,
+      extraQuota: user.extraQuota || 0,
+      isUnlimited: user.isUnlimited || false
+    }
   });
 });
 
