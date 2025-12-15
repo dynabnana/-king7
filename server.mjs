@@ -80,28 +80,66 @@ You are a medical data assistant for kidney disease patients.
 Your task is to extract medical examination data from images and convert it into a structured JSON object.
 
 Output Rules:
-1. Return ONLY a valid JSON object.
-2. The JSON must match this structure exactly:
+1. Return ONLY a valid JSON object, no extra text.
+2. The JSON must match this structure EXACTLY:
 {
-  "title": "String, usually '复查记录'",
-  "date": Number (timestamp in milliseconds),
-  "hospital": "String, extracted or 'Unknown'",
-  "doctor": "String or empty",
-  "notes": "String summary",
-  "configName": "String (e.g. '肾功能常规', '血常规')",
+  "title": "检查报告标题",
+  "date": "YYYY-MM-DD格式的日期字符串",
+  "hospital": "医院名称",
+  "doctor": "医生姓名（如无则留空字符串）",
+  "notes": "备注信息（如无则留空字符串）",
   "items": [
     {
-      "id": "String (use standard codes like 'scr', 'egfr', 'bun', 'ua', 'urine_pro', etc.)",
-      "name": "String",
-      "value": "String (numbers only usually)",
-      "unit": "String",
-      "range": "String",
-      "categoryName": "String"
+      "name": "检查项名称",
+      "value": "检测值（字符串）",
+      "unit": "单位",
+      "range": "参考范围"
     }
   ]
 }
-3. For dates: Convert to Javascript Timestamp.
+
+IMPORTANT:
+- date MUST be a STRING in format "YYYY-MM-DD" (e.g. "2025-12-15"), NOT a timestamp number
+- items array should only contain: name, value, unit, range
+- Do NOT add fields like "id", "categoryName", "configName"
+- Extract ALL test items from the image
 `;
+
+// 使用括号计数找到 JSON 对象的正确结束位置
+const findJsonEnd = (text, startIndex) => {
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+
+  for (let i = startIndex; i < text.length; i++) {
+    const char = text[i];
+
+    if (escape) {
+      escape = false;
+      continue;
+    }
+
+    if (char === '\\' && inString) {
+      escape = true;
+      continue;
+    }
+
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+
+    if (inString) continue;
+
+    if (char === '{') depth++;
+    if (char === '}') {
+      depth--;
+      if (depth === 0) return i;
+    }
+  }
+
+  return -1; // 没找到匹配的闭合括号
+};
 
 const cleanJsonString = (text) => {
   if (!text) return "{}";
@@ -109,17 +147,30 @@ const cleanJsonString = (text) => {
   // 移除 markdown 代码块标记
   let clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
 
-  // 找到第一个 { 和最后一个 }
+  // 找到第一个 {
   const firstBrace = clean.indexOf("{");
-  const lastBrace = clean.lastIndexOf("}");
 
-  if (firstBrace === -1 || lastBrace === -1) {
-    console.error("[cleanJsonString] No valid JSON braces found in:", clean.substring(0, 200));
+  if (firstBrace === -1) {
+    console.error("[cleanJsonString] No opening brace found in:", clean.substring(0, 200));
     return "{}";
   }
 
-  // 提取 JSON 部分
-  clean = clean.substring(firstBrace, lastBrace + 1);
+  // 使用括号计数找到正确的 JSON 结束位置
+  const lastBrace = findJsonEnd(clean, firstBrace);
+
+  if (lastBrace === -1) {
+    console.error("[cleanJsonString] No matching closing brace found");
+    // 尝试用 lastIndexOf 作为降级方案
+    const fallbackBrace = clean.lastIndexOf("}");
+    if (fallbackBrace > firstBrace) {
+      clean = clean.substring(firstBrace, fallbackBrace + 1);
+    } else {
+      return "{}";
+    }
+  } else {
+    // 提取正确的 JSON 部分
+    clean = clean.substring(firstBrace, lastBrace + 1);
+  }
 
   // 尝试修复常见问题
   // 1. 移除可能的 BOM
@@ -136,11 +187,14 @@ const cleanJsonString = (text) => {
 const safeJsonParse = (text, context = "") => {
   const cleaned = cleanJsonString(text);
 
+  console.log(`[safeJsonParse] ${context} - cleaned length: ${cleaned.length}`);
+
   try {
     return JSON.parse(cleaned);
   } catch (firstError) {
     console.error(`[safeJsonParse] First parse failed for ${context}:`, firstError.message);
     console.error(`[safeJsonParse] Cleaned text (first 500 chars):`, cleaned.substring(0, 500));
+    console.error(`[safeJsonParse] Cleaned text (last 100 chars):`, cleaned.substring(cleaned.length - 100));
 
     // 尝试更激进的清洗
     try {
