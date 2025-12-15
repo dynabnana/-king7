@@ -105,13 +105,64 @@ Output Rules:
 
 const cleanJsonString = (text) => {
   if (!text) return "{}";
+
+  // 移除 markdown 代码块标记
   let clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+
+  // 找到第一个 { 和最后一个 }
   const firstBrace = clean.indexOf("{");
   const lastBrace = clean.lastIndexOf("}");
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    clean = clean.substring(firstBrace, lastBrace + 1);
+
+  if (firstBrace === -1 || lastBrace === -1) {
+    console.error("[cleanJsonString] No valid JSON braces found in:", clean.substring(0, 200));
+    return "{}";
   }
+
+  // 提取 JSON 部分
+  clean = clean.substring(firstBrace, lastBrace + 1);
+
+  // 尝试修复常见问题
+  // 1. 移除可能的 BOM
+  clean = clean.replace(/^\uFEFF/, '');
+  // 2. 移除控制字符（除了换行和制表符）
+  clean = clean.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  // 3. 确保没有尾部逗号（JSON 不支持）
+  clean = clean.replace(/,(\s*[}\]])/g, '$1');
+
   return clean;
+};
+
+// 安全的 JSON 解析，带降级处理
+const safeJsonParse = (text, context = "") => {
+  const cleaned = cleanJsonString(text);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch (firstError) {
+    console.error(`[safeJsonParse] First parse failed for ${context}:`, firstError.message);
+    console.error(`[safeJsonParse] Cleaned text (first 500 chars):`, cleaned.substring(0, 500));
+
+    // 尝试更激进的清洗
+    try {
+      // 移除所有换行符，重新格式化
+      const aggressive = cleaned
+        .replace(/\n/g, ' ')
+        .replace(/\r/g, '')
+        .replace(/\t/g, ' ')
+        .replace(/\s+/g, ' ');
+
+      return JSON.parse(aggressive);
+    } catch (secondError) {
+      console.error(`[safeJsonParse] Aggressive parse also failed:`, secondError.message);
+
+      // 返回一个错误对象而不是抛出异常
+      return {
+        error: "JSON_PARSE_FAILED",
+        parseError: firstError.message,
+        rawTextPreview: text ? text.substring(0, 300) : "(empty)"
+      };
+    }
+  }
 };
 
 // 获取 API Key（优先使用环境变量，其次使用请求头）
@@ -203,7 +254,18 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
       },
     });
 
-    const data = JSON.parse(cleanJsonString(response.text || "{}"));
+    const data = safeJsonParse(response.text, "image-multipart");
+
+    // 检查是否解析失败
+    if (data.error === "JSON_PARSE_FAILED") {
+      console.error("[image] JSON parse failed, raw preview:", data.rawTextPreview);
+      return res.status(500).json({
+        error: "JSON_PARSE_FAILED",
+        message: "Failed to parse Gemini response",
+        detail: data.parseError
+      });
+    }
+
     return res.json(data);
   } catch (err) {
     console.error("Image analyze error:", err);
@@ -274,7 +336,18 @@ app.post("/api/analyze/image-base64", async (req, res) => {
       },
     });
 
-    const data = JSON.parse(cleanJsonString(response.text || "{}"));
+    const data = safeJsonParse(response.text, "image-base64");
+
+    // 检查是否解析失败
+    if (data.error === "JSON_PARSE_FAILED") {
+      console.error("[image-base64] JSON parse failed, raw preview:", data.rawTextPreview);
+      return res.status(500).json({
+        error: "JSON_PARSE_FAILED",
+        message: "Failed to parse Gemini response",
+        detail: data.parseError
+      });
+    }
+
     return res.json(data);
   } catch (err) {
     console.error("Image base64 analyze error:", err);
@@ -340,7 +413,18 @@ app.post("/api/analyze/excel-header", async (req, res) => {
       config: { responseMimeType: "application/json" },
     });
 
-    const mapData = JSON.parse(cleanJsonString(response.text || "{}"));
+    const mapData = safeJsonParse(response.text, "excel-header");
+
+    // 检查是否解析失败
+    if (mapData.error === "JSON_PARSE_FAILED") {
+      console.error("[excel] JSON parse failed, raw preview:", mapData.rawTextPreview);
+      return res.status(500).json({
+        error: "JSON_PARSE_FAILED",
+        message: "Failed to parse Gemini response",
+        detail: mapData.parseError
+      });
+    }
+
     return res.json(mapData);
   } catch (err) {
     console.error("Excel header analyze error:", err);

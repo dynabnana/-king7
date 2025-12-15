@@ -91,6 +91,8 @@ https://你的域名.zeabur.app/api/health
 
 ### 小程序示例代码
 
+#### 基础版（单服务器）
+
 ```javascript
 // 在小程序中调用识别 API
 async function recognizeMedicalReport(tempFilePath) {
@@ -146,6 +148,113 @@ wx.chooseImage({
   }
 });
 ```
+
+#### 进阶版（双服务器 - 负载均衡 + 故障转移）
+
+如果你有两个 Zeabur 账号，可以部署两个实例，使用以下代码实现负载均衡和故障转移：
+
+```javascript
+// ========== 双服务器配置 ==========
+const API_SERVERS = [
+  'https://服务器1.zeabur.app',
+  'https://服务器2.zeabur.app'
+];
+
+// 记录服务器状态
+let serverStatus = API_SERVERS.map(() => ({ 
+  healthy: true, 
+  lastFailTime: 0 
+}));
+let currentServerIndex = 0;
+
+// 获取下一个可用服务器（轮询 + 故障跳过）
+function getNextServer() {
+  const now = Date.now();
+  const RECOVERY_TIME = 60000; // 60秒后重试失败的服务器
+  
+  // 尝试找到一个健康的服务器
+  for (let i = 0; i < API_SERVERS.length; i++) {
+    const idx = (currentServerIndex + i) % API_SERVERS.length;
+    const status = serverStatus[idx];
+    
+    // 如果健康，或者已经过了恢复时间，就使用这个服务器
+    if (status.healthy || (now - status.lastFailTime > RECOVERY_TIME)) {
+      currentServerIndex = (idx + 1) % API_SERVERS.length; // 下次从下一个开始
+      return { url: API_SERVERS[idx], index: idx };
+    }
+  }
+  
+  // 如果都不健康，使用第一个（强制重试）
+  return { url: API_SERVERS[0], index: 0 };
+}
+
+// 标记服务器失败
+function markServerFailed(index) {
+  serverStatus[index] = { healthy: false, lastFailTime: Date.now() };
+  console.log(`[API] 服务器 ${index} 标记为不可用`);
+}
+
+// 标记服务器恢复
+function markServerHealthy(index) {
+  serverStatus[index] = { healthy: true, lastFailTime: 0 };
+}
+
+// 带故障转移的 API 调用
+async function callApiWithFailover(base64, mimeType, retryCount = 0) {
+  const maxRetries = API_SERVERS.length; // 最多尝试所有服务器
+  
+  const server = getNextServer();
+  console.log(`[API] 使用服务器 ${server.index}: ${server.url}`);
+  
+  try {
+    const res = await new Promise((resolve, reject) => {
+      wx.request({
+        url: `${server.url}/api/analyze/image-base64`,
+        method: 'POST',
+        header: { 'Content-Type': 'application/json' },
+        data: { base64, mimeType },
+        timeout: 30000, // 30秒超时
+        success: (res) => resolve(res),
+        fail: (err) => reject(err)
+      });
+    });
+    
+    if (res.statusCode === 200) {
+      markServerHealthy(server.index);
+      return res.data;
+    } else if (res.statusCode >= 500 && retryCount < maxRetries) {
+      // 服务器错误，尝试下一个
+      markServerFailed(server.index);
+      return callApiWithFailover(base64, mimeType, retryCount + 1);
+    } else {
+      throw new Error(res.data?.message || `请求失败: ${res.statusCode}`);
+    }
+  } catch (err) {
+    // 网络错误，尝试下一个服务器
+    markServerFailed(server.index);
+    
+    if (retryCount < maxRetries) {
+      console.log(`[API] 服务器 ${server.index} 失败，尝试下一个...`);
+      return callApiWithFailover(base64, mimeType, retryCount + 1);
+    }
+    
+    throw new Error('所有服务器都不可用，请稍后重试');
+  }
+}
+
+// 识别报告单（使用双服务器）
+async function recognizeMedicalReport(tempFilePath) {
+  const fileSystemManager = wx.getFileSystemManager();
+  const base64 = fileSystemManager.readFileSync(tempFilePath, 'base64');
+  return callApiWithFailover(base64, 'image/jpeg');
+}
+```
+
+**双服务器方案优势**：
+- 📈 **双倍额度**：两个账号各 $5/月 = $10/月
+- 🔄 **负载均衡**：请求自动轮流分配到两个服务器
+- 🛡️ **故障转移**：一个挂了自动切换到另一个
+- ⚡ **更快响应**：分散负载，减少排队等待
 
 ---
 
