@@ -199,11 +199,44 @@ const logUserUsage = async (req, apiType, extra = {}) => {
 // 初始化存储
 initDataStorage();
 
-// ========== 用户配额与兑换码系统 ==========
+// ========== 用户配额与兑换码系统（Upstash Redis 共享存储）==========
+// Upstash Redis 配置（从环境变量读取）
+const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || "";
+const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+const USE_REDIS = UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN;
+
+// 本地文件存储（Redis 不可用时的降级方案）
 const QUOTA_FILE = path.join(DATA_DIR, "user_quotas.json");
+
 let quotaStore = {
   users: {}, // userId -> { weeklyUsage, currentWeek, extraQuota, isUnlimited, nickname }
-  codes: {}  // code -> { quota, createTime }
+  codes: {}  // code -> { quota, createTime, type, remark }
+};
+
+// Redis 操作辅助函数
+const redisCommand = async (command, ...args) => {
+  if (!USE_REDIS) return null;
+
+  try {
+    const response = await fetch(`${UPSTASH_REDIS_REST_URL}`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify([command, ...args])
+    });
+
+    if (!response.ok) {
+      throw new Error(`Redis request failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data.result;
+  } catch (err) {
+    console.error(`[Redis] Command ${command} failed:`, err.message);
+    return null;
+  }
 };
 
 // 工具函数：获取当前周标识 (e.g. "2025-W51")
@@ -215,32 +248,77 @@ const getCurrentWeekId = () => {
 };
 
 // 加载配额数据
-const loadQuotaData = () => {
+const loadQuotaData = async () => {
+  // 优先从 Redis 加载
+  if (USE_REDIS) {
+    try {
+      const [usersData, codesData] = await Promise.all([
+        redisCommand('GET', 'quota:users'),
+        redisCommand('GET', 'quota:codes')
+      ]);
+
+      if (usersData) {
+        quotaStore.users = JSON.parse(usersData);
+      }
+      if (codesData) {
+        quotaStore.codes = JSON.parse(codesData);
+      }
+
+      console.log(`[Redis] Loaded ${Object.keys(quotaStore.users).length} users and ${Object.keys(quotaStore.codes).length} codes from Redis`);
+      return;
+    } catch (err) {
+      console.error("[Redis] Failed to load quota data:", err.message);
+      // 降级到本地文件
+    }
+  }
+
+  // 本地文件加载（降级方案）
   try {
     if (fs.existsSync(QUOTA_FILE)) {
       const data = fs.readFileSync(QUOTA_FILE, "utf-8");
-      // 简单合并，防止覆盖内存中已有的结构
       const parsed = JSON.parse(data);
       quotaStore = { ...quotaStore, ...parsed };
-      console.log(`[Quota] Loaded ${Object.keys(quotaStore.users).length} users and ${Object.keys(quotaStore.codes).length} codes`);
+      console.log(`[Quota] Loaded ${Object.keys(quotaStore.users).length} users and ${Object.keys(quotaStore.codes).length} codes from file`);
     }
   } catch (err) {
-    console.error("[Quota] Failed to load quota data:", err.message);
+    console.error("[Quota] Failed to load quota data from file:", err.message);
   }
 };
 
 // 保存配额数据
-const saveQuotaData = () => {
+const saveQuotaData = async () => {
+  // 优先保存到 Redis
+  if (USE_REDIS) {
+    try {
+      await Promise.all([
+        redisCommand('SET', 'quota:users', JSON.stringify(quotaStore.users)),
+        redisCommand('SET', 'quota:codes', JSON.stringify(quotaStore.codes))
+      ]);
+      return;
+    } catch (err) {
+      console.error("[Redis] Failed to save quota data:", err.message);
+      // 降级到本地文件
+    }
+  }
+
+  // 本地文件保存（降级方案）
   try {
     if (!fs.existsSync(DATA_DIR)) return;
     fs.writeFileSync(QUOTA_FILE, JSON.stringify(quotaStore, null, 2), "utf-8");
   } catch (err) {
-    console.error("[Quota] Failed to save quota data:", err.message);
+    console.error("[Quota] Failed to save quota data to file:", err.message);
   }
 };
 
-// 初始化配额数据
-loadQuotaData();
+// 初始化配额数据（异步）
+(async () => {
+  await loadQuotaData();
+  if (USE_REDIS) {
+    console.log("[Redis] Upstash Redis storage enabled - multi-instance quota sharing active");
+  } else {
+    console.log("[Quota] Using local file storage (Redis not configured)");
+  }
+})();
 
 // 检查并扣除配额
 // 返回: { allowed: boolean, reason: string, remaining: number, isUnlimited: boolean }
