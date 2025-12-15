@@ -132,8 +132,8 @@ const getIpLocation = async (ip) => {
       location: [data.pro, data.city, data.region].filter(Boolean).join(' ') || data.addr || ip
     };
 
-    // 缓存结果（最多缓存1000个）
-    if (ipLocationCache.size > 1000) {
+    // 缓存结果（最多缓存100个，节省内存）
+    if (ipLocationCache.size > 100) {
       const firstKey = ipLocationCache.keys().next().value;
       ipLocationCache.delete(firstKey);
     }
@@ -183,9 +183,9 @@ const logUserUsage = async (req, apiType, extra = {}) => {
 
   usageLogs.push(logEntry);
 
-  // 限制内存中的记录数量（保留最近1000条）
-  if (usageLogs.length > 1000) {
-    usageLogs = usageLogs.slice(-1000);
+  // 限制内存中的记录数量（保留最近100条，节省内存）
+  if (usageLogs.length > 100) {
+    usageLogs = usageLogs.slice(-100);
   }
 
   // 异步保存到磁盘
@@ -199,7 +199,7 @@ const logUserUsage = async (req, apiType, extra = {}) => {
 // 初始化存储
 initDataStorage();
 
-// ========== 用户配额与兑换码系统（Upstash Redis 共享存储）==========
+// ========== 用户配额与兑换码系统（纯 Redis 模式）==========
 // Upstash Redis 配置（从环境变量读取）
 const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || "";
 const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
@@ -208,10 +208,8 @@ const USE_REDIS = UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN;
 // 本地文件存储（Redis 不可用时的降级方案）
 const QUOTA_FILE = path.join(DATA_DIR, "user_quotas.json");
 
-let quotaStore = {
-  users: {}, // userId -> { weeklyUsage, currentWeek, extraQuota, isUnlimited, nickname }
-  codes: {}  // code -> { quota, createTime, type, remark }
-};
+// Redis 数据过期时间（21 天）
+const REDIS_DATA_TTL = 21 * 24 * 60 * 60;
 
 // Redis 操作辅助函数
 const redisCommand = async (command, ...args) => {
@@ -247,94 +245,113 @@ const getCurrentWeekId = () => {
   return `${now.getFullYear()}-W${week}`;
 };
 
-// 加载配额数据
-const loadQuotaData = async () => {
-  // 优先从 Redis 加载
+// ===== 纯 Redis 读写函数（不使用内存缓存）=====
+
+// 获取所有用户配额数据
+const getQuotaUsers = async () => {
   if (USE_REDIS) {
     try {
-      const [usersData, codesData] = await Promise.all([
-        redisCommand('GET', 'quota:users'),
-        redisCommand('GET', 'quota:codes')
-      ]);
-
-      if (usersData) {
-        quotaStore.users = JSON.parse(usersData);
-      }
-      if (codesData) {
-        quotaStore.codes = JSON.parse(codesData);
-      }
-
-      console.log(`[Redis] Loaded ${Object.keys(quotaStore.users).length} users and ${Object.keys(quotaStore.codes).length} codes from Redis`);
-      return;
+      const data = await redisCommand('GET', 'quota:users');
+      return data ? JSON.parse(data) : {};
     } catch (err) {
-      console.error("[Redis] Failed to load quota data:", err.message);
-      // 降级到本地文件
+      console.error("[Redis] Failed to get users:", err.message);
     }
   }
-
-  // 本地文件加载（降级方案）
+  // 降级到本地文件
   try {
     if (fs.existsSync(QUOTA_FILE)) {
-      const data = fs.readFileSync(QUOTA_FILE, "utf-8");
-      const parsed = JSON.parse(data);
-      quotaStore = { ...quotaStore, ...parsed };
-      console.log(`[Quota] Loaded ${Object.keys(quotaStore.users).length} users and ${Object.keys(quotaStore.codes).length} codes from file`);
+      const data = JSON.parse(fs.readFileSync(QUOTA_FILE, "utf-8"));
+      return data.users || {};
     }
-  } catch (err) {
-    console.error("[Quota] Failed to load quota data from file:", err.message);
-  }
+  } catch (err) { }
+  return {};
 };
 
-// 保存配额数据（Redis 数据设置 21 天过期，防止存储爆满）
-const REDIS_DATA_TTL = 21 * 24 * 60 * 60; // 21 天（秒）
-
-const saveQuotaData = async () => {
-  // 优先保存到 Redis（带过期时间）
+// 保存用户配额数据
+const saveQuotaUsers = async (users) => {
   if (USE_REDIS) {
     try {
-      await Promise.all([
-        // SETEX key seconds value - 设置值并指定过期时间
-        redisCommand('SETEX', 'quota:users', REDIS_DATA_TTL, JSON.stringify(quotaStore.users)),
-        redisCommand('SETEX', 'quota:codes', REDIS_DATA_TTL, JSON.stringify(quotaStore.codes))
-      ]);
+      await redisCommand('SETEX', 'quota:users', REDIS_DATA_TTL, JSON.stringify(users));
       return;
     } catch (err) {
-      console.error("[Redis] Failed to save quota data:", err.message);
-      // 降级到本地文件
+      console.error("[Redis] Failed to save users:", err.message);
     }
   }
-
-  // 本地文件保存（降级方案）
+  // 降级到本地文件
   try {
-    if (!fs.existsSync(DATA_DIR)) return;
-    fs.writeFileSync(QUOTA_FILE, JSON.stringify(quotaStore, null, 2), "utf-8");
-  } catch (err) {
-    console.error("[Quota] Failed to save quota data to file:", err.message);
-  }
+    if (fs.existsSync(DATA_DIR)) {
+      const existing = fs.existsSync(QUOTA_FILE) ? JSON.parse(fs.readFileSync(QUOTA_FILE, "utf-8")) : {};
+      existing.users = users;
+      fs.writeFileSync(QUOTA_FILE, JSON.stringify(existing, null, 2), "utf-8");
+    }
+  } catch (err) { }
 };
 
-// 初始化配额数据（异步）
-(async () => {
-  await loadQuotaData();
+// 获取所有兑换码数据
+const getQuotaCodes = async () => {
   if (USE_REDIS) {
-    console.log("[Redis] Upstash Redis storage enabled - multi-instance quota sharing active");
+    try {
+      const data = await redisCommand('GET', 'quota:codes');
+      return data ? JSON.parse(data) : {};
+    } catch (err) {
+      console.error("[Redis] Failed to get codes:", err.message);
+    }
+  }
+  // 降级到本地文件
+  try {
+    if (fs.existsSync(QUOTA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(QUOTA_FILE, "utf-8"));
+      return data.codes || {};
+    }
+  } catch (err) { }
+  return {};
+};
+
+// 保存兑换码数据
+const saveQuotaCodes = async (codes) => {
+  if (USE_REDIS) {
+    try {
+      await redisCommand('SETEX', 'quota:codes', REDIS_DATA_TTL, JSON.stringify(codes));
+      return;
+    } catch (err) {
+      console.error("[Redis] Failed to save codes:", err.message);
+    }
+  }
+  // 降级到本地文件
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      const existing = fs.existsSync(QUOTA_FILE) ? JSON.parse(fs.readFileSync(QUOTA_FILE, "utf-8")) : {};
+      existing.codes = codes;
+      fs.writeFileSync(QUOTA_FILE, JSON.stringify(existing, null, 2), "utf-8");
+    }
+  } catch (err) { }
+};
+
+// 初始化日志
+(async () => {
+  if (USE_REDIS) {
+    const [users, codes] = await Promise.all([getQuotaUsers(), getQuotaCodes()]);
+    console.log(`[Redis] Connected - ${Object.keys(users).length} users, ${Object.keys(codes).length} codes`);
+    console.log("[Redis] Pure Redis mode enabled - no memory cache for quota data");
   } else {
     console.log("[Quota] Using local file storage (Redis not configured)");
   }
 })();
 
-// 检查并扣除配额
+// 检查并扣除配额（纯 Redis 模式）
 // 返回: { allowed: boolean, reason: string, remaining: number, isUnlimited: boolean }
-const checkAndConsumeQuota = (userId, nickname) => {
+const checkAndConsumeQuota = async (userId, nickname) => {
   if (!userId) {
-    // 如果没有用户ID，暂时允许（或根据需求拒绝），这里假设必须有ID
-    // 对于网页端匿名用户，可以用IP作为ID
+    // 如果没有用户ID，暂时允许
     return { allowed: true, reason: "anonymous", remaining: 1, isUnlimited: false };
   }
 
+  // 从 Redis 获取所有用户数据
+  const users = await getQuotaUsers();
+
   // 初始化用户数据
-  if (!quotaStore.users[userId]) {
-    quotaStore.users[userId] = {
+  if (!users[userId]) {
+    users[userId] = {
       weeklyUsage: 0,
       currentWeek: getCurrentWeekId(),
       extraQuota: 0,
@@ -343,7 +360,7 @@ const checkAndConsumeQuota = (userId, nickname) => {
     };
   }
 
-  const user = quotaStore.users[userId];
+  const user = users[userId];
 
   // 更新昵称
   if (nickname) user.nickname = nickname;
@@ -363,14 +380,14 @@ const checkAndConsumeQuota = (userId, nickname) => {
   // 1. 检查周免费额度 (每周5次)
   if (user.weeklyUsage < 5) {
     user.weeklyUsage++;
-    saveQuotaData(); // 异步保存建议用防抖，这里为安全直接保存
+    await saveQuotaUsers(users);
     return { allowed: true, reason: "weekly_free", remaining: 5 - user.weeklyUsage, isUnlimited: false };
   }
 
   // 2. 检查额外额度 (兑换码)
   if (user.extraQuota > 0) {
     user.extraQuota--;
-    saveQuotaData();
+    await saveQuotaUsers(users);
     return { allowed: true, reason: "extra_quota", remaining: user.extraQuota, isUnlimited: false };
   }
 
@@ -774,7 +791,7 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     // 优先使用 userId，如果没有则尝试用 IP (不推荐，小程序应传 userId/openid)
     const userIdentifier = userId || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "anonymous_user";
 
-    const quotaResult = checkAndConsumeQuota(userIdentifier, nickname);
+    const quotaResult = await checkAndConsumeQuota(userIdentifier, nickname);
     if (!quotaResult.allowed) {
       return res.status(403).json({
         error: "QUOTA_EXCEEDED",
@@ -1132,24 +1149,27 @@ app.delete("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
 // 配额管理 API (Admin & User)
 // ===========================================
 
-// [Admin] 生成兑换码
-app.post("/api/admin/codes/generate", verifyAdminToken, (req, res) => {
-  const { amount, count } = req.body; // amount: 每个码的额度, count: 生成数量
+// [Admin] 生成兑换码（纯 Redis 模式）
+app.post("/api/admin/codes/generate", verifyAdminToken, async (req, res) => {
+  const { amount, count } = req.body;
   const quotaAmount = parseInt(amount) || 10;
   const generateCount = parseInt(count) || 1;
+
+  // 从 Redis 获取现有兑换码
+  const codes = await getQuotaCodes();
 
   const newCodes = [];
   for (let i = 0; i < generateCount; i++) {
     const code = "PRO-" + Math.random().toString(36).substr(2, 6).toUpperCase() + Math.random().toString(36).substr(2, 2).toUpperCase();
-    quotaStore.codes[code] = {
+    codes[code] = {
       quota: quotaAmount,
       createTime: Date.now(),
-      type: 'quota' // 普通额度兑换码
+      type: 'quota'
     };
     newCodes.push(code);
   }
 
-  saveQuotaData();
+  await saveQuotaCodes(codes);
 
   res.json({
     success: true,
@@ -1157,28 +1177,30 @@ app.post("/api/admin/codes/generate", verifyAdminToken, (req, res) => {
   });
 });
 
-// [Admin] 生成无限畅享兑换码
-app.post("/api/admin/codes/generate-unlimited", verifyAdminToken, (req, res) => {
-  const { count, remark } = req.body; // count: 生成数量, remark: 备注
+// [Admin] 生成无限畅享兑换码（纯 Redis 模式）
+app.post("/api/admin/codes/generate-unlimited", verifyAdminToken, async (req, res) => {
+  const { count, remark } = req.body;
   const generateCount = parseInt(count) || 1;
+
+  // 从 Redis 获取现有兑换码
+  const codes = await getQuotaCodes();
 
   const newCodes = [];
   for (let i = 0; i < generateCount; i++) {
-    // 使用 dzwdsg + 时间戳后4位 + 随机2位数字 格式
     const timestamp = Date.now().toString().slice(-4);
     const random = Math.floor(Math.random() * 100).toString().padStart(2, '0');
     const code = `dzwdsg${timestamp}${random}`;
 
-    quotaStore.codes[code] = {
-      quota: -1, // -1 表示无限
+    codes[code] = {
+      quota: -1,
       createTime: Date.now(),
-      type: 'unlimited', // 无限畅享兑换码
-      remark: remark || '' // 备注信息
+      type: 'unlimited',
+      remark: remark || ''
     };
     newCodes.push(code);
   }
 
-  saveQuotaData();
+  await saveQuotaCodes(codes);
 
   res.json({
     success: true,
@@ -1187,24 +1209,26 @@ app.post("/api/admin/codes/generate-unlimited", verifyAdminToken, (req, res) => 
   });
 });
 
-// [Admin] 获取所有兑换码
-app.get("/api/admin/codes", verifyAdminToken, (req, res) => {
+// [Admin] 获取所有兑换码（纯 Redis 模式）
+app.get("/api/admin/codes", verifyAdminToken, async (req, res) => {
+  const codes = await getQuotaCodes();
   res.json({
     success: true,
-    data: quotaStore.codes
+    data: codes
   });
 });
 
-// [Admin] 删除兑换码
-app.delete("/api/admin/codes/:code", verifyAdminToken, (req, res) => {
+// [Admin] 删除兑换码（纯 Redis 模式）
+app.delete("/api/admin/codes/:code", verifyAdminToken, async (req, res) => {
   const { code } = req.params;
+  const codes = await getQuotaCodes();
 
-  if (!quotaStore.codes[code]) {
+  if (!codes[code]) {
     return res.status(404).json({ success: false, message: "兑换码不存在" });
   }
 
-  delete quotaStore.codes[code];
-  saveQuotaData();
+  delete codes[code];
+  await saveQuotaCodes(codes);
 
   res.json({
     success: true,
@@ -1212,52 +1236,53 @@ app.delete("/api/admin/codes/:code", verifyAdminToken, (req, res) => {
   });
 });
 
-// [Admin] 更新兑换码备注
-app.put("/api/admin/codes/:code/remark", verifyAdminToken, (req, res) => {
+// [Admin] 更新兑换码备注（纯 Redis 模式）
+app.put("/api/admin/codes/:code/remark", verifyAdminToken, async (req, res) => {
   const { code } = req.params;
   const { remark } = req.body;
+  const codes = await getQuotaCodes();
 
-  if (!quotaStore.codes[code]) {
+  if (!codes[code]) {
     return res.status(404).json({ success: false, message: "兑换码不存在" });
   }
 
-  quotaStore.codes[code].remark = remark || '';
-  saveQuotaData();
+  codes[code].remark = remark || '';
+  await saveQuotaCodes(codes);
 
   res.json({
     success: true,
     message: "备注已更新",
-    data: quotaStore.codes[code]
+    data: codes[code]
   });
 });
 
-// [Admin] 获取用户配额列表
-app.get("/api/admin/quota/users", verifyAdminToken, (req, res) => {
-  // 转换为数组返回
-  const userList = Object.entries(quotaStore.users).map(([id, data]) => ({
+// [Admin] 获取用户配额列表（纯 Redis 模式）
+app.get("/api/admin/quota/users", verifyAdminToken, async (req, res) => {
+  const users = await getQuotaUsers();
+  const userList = Object.entries(users).map(([id, data]) => ({
     id,
     ...data
   }));
   res.json({ success: true, data: userList });
 });
 
-// [Admin] 设置用户无限额度
-app.post("/api/admin/users/unlimited", verifyAdminToken, (req, res) => {
+// [Admin] 设置用户无限额度（纯 Redis 模式）
+app.post("/api/admin/users/unlimited", verifyAdminToken, async (req, res) => {
   const { userId, isUnlimited } = req.body;
+  const users = await getQuotaUsers();
 
-  if (!userId || !quotaStore.users[userId]) {
+  if (!userId || !users[userId]) {
     return res.status(404).json({ success: false, message: "用户不存在或未初始化" });
   }
 
-  quotaStore.users[userId].isUnlimited = !!isUnlimited;
-  saveQuotaData();
+  users[userId].isUnlimited = !!isUnlimited;
+  await saveQuotaUsers(users);
 
-  res.json({ success: true, data: quotaStore.users[userId] });
+  res.json({ success: true, data: users[userId] });
 });
 
-// [User] 兑换额度
+// [User] 兑换额度（纯 Redis 模式）
 app.post("/api/user/redeem", async (req, res) => {
-  // 小程序请求时带上 code 和 userId
   const { code, userId, nickname } = req.body;
 
   if (!code || !userId) {
@@ -1266,78 +1291,74 @@ app.post("/api/user/redeem", async (req, res) => {
 
   const cleanCode = code.trim().toUpperCase();
 
-  if (!quotaStore.codes[cleanCode]) {
+  // 从 Redis 获取数据
+  const [codes, users] = await Promise.all([getQuotaCodes(), getQuotaUsers()]);
+
+  if (!codes[cleanCode]) {
     return res.status(404).json({ success: false, message: "无效的兑换码" });
   }
 
-  const codeData = quotaStore.codes[cleanCode];
+  const codeData = codes[cleanCode];
 
   // 初始化用户如果不存在
-  if (!quotaStore.users[userId]) {
-    checkAndConsumeQuota(userId, nickname); // 初始化副作用，不消耗因为只是初始化
-    // 恢复因上面调用可能导致的消耗（实际上上面的函数只有在 checks 后才消耗，但初始化逻辑耦合在里面了）
-    // 更安全的做法是手动初始化：
-    if (!quotaStore.users[userId]) {
-      quotaStore.users[userId] = {
-        weeklyUsage: 0,
-        currentWeek: getCurrentWeekId(),
-        extraQuota: 0,
-        isUnlimited: false,
-        nickname: nickname || "未命名"
-      };
-    }
+  if (!users[userId]) {
+    users[userId] = {
+      weeklyUsage: 0,
+      currentWeek: getCurrentWeekId(),
+      extraQuota: 0,
+      isUnlimited: false,
+      nickname: nickname || "未命名"
+    };
   }
 
   // 判断兑换码类型
   if (codeData.type === 'unlimited' || codeData.quota === -1) {
-    // 无限畅享兑换码：直接设置用户为无限额度
-    quotaStore.users[userId].isUnlimited = true;
+    // 无限畅享兑换码
+    users[userId].isUnlimited = true;
+    delete codes[cleanCode];
 
-    // 删除已使用的码
-    delete quotaStore.codes[cleanCode];
-    saveQuotaData();
+    await Promise.all([saveQuotaCodes(codes), saveQuotaUsers(users)]);
 
     res.json({
       success: true,
       message: "🎉 恭喜！您已成功兑换无限畅享权益，现在可以无限使用识别功能了！",
       data: {
         isUnlimited: true,
-        totalExtra: quotaStore.users[userId].extraQuota || 0
+        totalExtra: users[userId].extraQuota || 0
       }
     });
   } else {
-    // 普通额度兑换码：增加额度
-    quotaStore.users[userId].extraQuota = (quotaStore.users[userId].extraQuota || 0) + codeData.quota;
+    // 普通额度兑换码
+    users[userId].extraQuota = (users[userId].extraQuota || 0) + codeData.quota;
+    delete codes[cleanCode];
 
-    // 删除已使用的码
-    delete quotaStore.codes[cleanCode];
-    saveQuotaData();
+    await Promise.all([saveQuotaCodes(codes), saveQuotaUsers(users)]);
 
     res.json({
       success: true,
       message: `兑换成功！增加了 ${codeData.quota} 次额度`,
       data: {
         isUnlimited: false,
-        totalExtra: quotaStore.users[userId].extraQuota
+        totalExtra: users[userId].extraQuota
       }
     });
   }
 });
 
-// [User] 查询配额状态
-app.get("/api/user/quota", (req, res) => {
+// [User] 查询配额状态（纯 Redis 模式）
+app.get("/api/user/quota", async (req, res) => {
   const { userId } = req.query;
-  if (!userId || !quotaStore.users[userId]) {
+  const users = await getQuotaUsers();
+
+  if (!userId || !users[userId]) {
     return res.json({
       success: true,
       data: { weeklyUsage: 0, weeklyLimit: 5, extraQuota: 0, isUnlimited: false }
     });
   }
 
-  const user = quotaStore.users[userId];
+  const user = users[userId];
   const thisWeek = getCurrentWeekId();
-
-  // 如果是旧的周，显示0使用量（虽然只有在该用户请求识别时才真正重置，但查询时应显示准确的“剩余”）
   const weeklyUsage = (user.currentWeek === thisWeek) ? user.weeklyUsage : 0;
 
   res.json({
