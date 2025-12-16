@@ -96,7 +96,7 @@ const saveUsageLogs = () => {
 };
 
 // ========== IP 地理位置查询 ==========
-// 使用 PConline 免费 API 查询 IP 归属地（省+市+区）
+// 使用 ip-api.com 免费 API 查询 IP 归属地（返回 UTF-8，无乱码问题）
 const ipLocationCache = new Map(); // 缓存 IP 位置，避免重复查询
 
 const getIpLocation = async (ip) => {
@@ -111,25 +111,27 @@ const getIpLocation = async (ip) => {
   }
 
   try {
-    // 使用 PConline IP 查询 API
-    const response = await fetch(`http://whois.pconline.com.cn/ipJson.jsp?ip=${ip}&json=true`, {
-      timeout: 3000 // 3秒超时
+    // 使用 ip-api.com 免费 API（返回 UTF-8 编码，每分钟限 45 次）
+    // 响应格式: {"status":"success","country":"中国","regionName":"广东","city":"广州",...}
+    const response = await fetch(`http://ip-api.com/json/${ip}?lang=zh-CN&fields=status,country,regionName,city,message`, {
+      signal: AbortSignal.timeout(3000) // 3秒超时
     });
 
     if (!response.ok) {
       throw new Error('API request failed');
     }
 
-    const text = await response.text();
-    // PConline 返回的是 GBK 编码的 JSON，需要处理
-    // 响应格式: {"ip":"x.x.x.x","pro":"省份","proCode":"xxx","city":"城市","cityCode":"xxx","region":"区县","regionCode":"xxx","addr":"完整地址","regionNames":"","err":""}
-    const data = JSON.parse(text);
+    const data = await response.json();
+
+    if (data.status !== 'success') {
+      throw new Error(data.message || 'IP lookup failed');
+    }
 
     const result = {
-      province: data.pro || '',
+      province: data.regionName || '',
       city: data.city || '',
-      district: data.region || '',
-      location: [data.pro, data.city, data.region].filter(Boolean).join(' ') || data.addr || ip
+      district: '', // ip-api 不提供区级信息
+      location: [data.country, data.regionName, data.city].filter(Boolean).join(' ') || ip
     };
 
     // 缓存结果（最多缓存100个，节省内存）
@@ -1067,14 +1069,25 @@ const verifyAdminToken = (req, res, next) => {
 };
 
 // ===========================================
-// 管理后台 API - 获取使用记录
+// 管理后台 API - 获取使用记录（支持用户搜索）
 // ===========================================
 app.get("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 50;
+  const searchUser = req.query.user?.trim()?.toLowerCase() || '';
 
   // 按时间倒序排列
-  const sortedLogs = [...usageLogs].reverse();
+  let sortedLogs = [...usageLogs].reverse();
+
+  // 如果有用户搜索条件，过滤日志
+  if (searchUser) {
+    sortedLogs = sortedLogs.filter(log => {
+      const nickname = (log.nickname || '').toLowerCase();
+      const userId = (log.userId || '').toLowerCase();
+      const ip = (log.ip || '').toLowerCase();
+      return nickname.includes(searchUser) || userId.includes(searchUser) || ip.includes(searchUser);
+    });
+  }
 
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
@@ -1087,25 +1100,38 @@ app.get("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
       pagination: {
         page,
         pageSize,
-        total: usageLogs.length,
-        totalPages: Math.ceil(usageLogs.length / pageSize)
-      }
+        total: sortedLogs.length,
+        totalPages: Math.ceil(sortedLogs.length / pageSize)
+      },
+      searchUser: searchUser || null
     }
   });
 });
 
 // ===========================================
-// 管理后台 API - 获取用户统计汇总
+// 管理后台 API - 获取用户统计汇总（含今日/本月统计）
 // ===========================================
 app.get("/api/admin/user-stats", verifyAdminToken, (req, res) => {
   // 按用户汇总统计
   const userSummary = [];
   const userLastSeen = new Map();
 
-  // 遍历所有记录，获取每个用户的最后使用时间
+  // 计算今日和本月的时间范围
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  let todayCalls = 0;
+  let monthCalls = 0;
+
+  // 遍历所有记录，获取每个用户的最后使用时间，并统计今日/本月调用
   usageLogs.forEach(log => {
     const key = log.nickname || log.userId || log.ip;
     userLastSeen.set(key, log.timestamp);
+
+    const logTime = new Date(log.timestamp).getTime();
+    if (logTime >= todayStart) todayCalls++;
+    if (logTime >= monthStart) monthCalls++;
   });
 
   // 构建汇总数据
@@ -1125,7 +1151,67 @@ app.get("/api/admin/user-stats", verifyAdminToken, (req, res) => {
     data: {
       totalUsers: userSummary.length,
       totalCalls: usageLogs.length,
+      todayCalls,
+      monthCalls,
       users: userSummary
+    }
+  });
+});
+
+// ===========================================
+// 管理后台 API - 查询单个用户统计
+// ===========================================
+app.get("/api/admin/user-stats/:userId", verifyAdminToken, (req, res) => {
+  const searchUser = req.params.userId?.trim()?.toLowerCase() || '';
+
+  if (!searchUser) {
+    return res.status(400).json({ success: false, message: "请提供用户ID" });
+  }
+
+  // 计算今日和本月的时间范围
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  let totalCalls = 0;
+  let todayCalls = 0;
+  let monthCalls = 0;
+  let lastSeen = null;
+  let matchedUser = null;
+
+  // 遍历所有日志，查找匹配的用户
+  usageLogs.forEach(log => {
+    const nickname = (log.nickname || '').toLowerCase();
+    const userId = (log.userId || '').toLowerCase();
+    const ip = (log.ip || '').toLowerCase();
+
+    if (nickname.includes(searchUser) || userId.includes(searchUser) || ip.includes(searchUser)) {
+      totalCalls++;
+      lastSeen = log.timestamp;
+      matchedUser = log.nickname || log.userId || log.ip;
+
+      const logTime = new Date(log.timestamp).getTime();
+      if (logTime >= todayStart) todayCalls++;
+      if (logTime >= monthStart) monthCalls++;
+    }
+  });
+
+  if (totalCalls === 0) {
+    return res.json({
+      success: true,
+      data: null,
+      message: "未找到该用户的调用记录"
+    });
+  }
+
+  res.json({
+    success: true,
+    data: {
+      user: matchedUser,
+      totalCalls,
+      todayCalls,
+      monthCalls,
+      lastSeen
     }
   });
 });
@@ -1135,13 +1221,20 @@ app.get("/api/admin/user-stats", verifyAdminToken, (req, res) => {
 // ===========================================
 app.delete("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
   const previousCount = usageLogs.length;
+  const previousUsers = userStats.size;
   usageLogs = [];
   userStats.clear();
   saveUsageLogs();
 
+  console.log(`[Admin] Cleared ${previousCount} logs and ${previousUsers} user stats`);
+
   res.json({
     success: true,
-    message: `已清除 ${previousCount} 条记录`
+    message: `已清除 ${previousCount} 条记录`,
+    data: {
+      deletedCount: previousCount,
+      deletedUsers: previousUsers
+    }
   });
 });
 

@@ -410,13 +410,65 @@
           <div class="value" id="statTodayCalls">-</div>
         </div>
         <div class="stat-card">
-          <h3>总用户</h3>
+          <h3>本月调用</h3>
+          <div class="value" id="statMonthCalls">-</div>
+        </div>
+        <div class="stat-card">
+          <h3>独立用户</h3>
           <div class="value" id="statTotalUsers">-</div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">按ID/昵称/IP统计</div>
         </div>
       </div>
+
+      <!-- 管理操作区域 -->
+      <div style="margin-bottom:16px;text-align:right;">
+        <button class="btn btn-sm" onclick="clearAllLogs()"
+          style="background:transparent;color:var(--danger);border:1px solid var(--danger);font-size:12px;">
+          🗑️ 清除所有记录（重新统计）
+        </button>
+      </div>
+
+      <!-- 用户搜索区域 -->
+      <div class="actions-panel">
+        <div class="form-group">
+          <label>🔍 查询用户调用记录</label>
+          <input type="text" id="logUserSearch" placeholder="输入用户ID或昵称搜索..."
+            onkeydown="if(event.key==='Enter')searchUserLogs()">
+        </div>
+        <button class="btn btn-primary" onclick="searchUserLogs()" style="width:auto;">搜索</button>
+        <button class="btn btn-sm" onclick="clearUserSearch()"
+          style="width:auto;background:var(--bg-secondary);color:var(--text-secondary);border:1px solid var(--border);">清除</button>
+      </div>
+
+      <!-- 用户统计展示区域 (搜索后显示) -->
+      <div id="userStatsPanel" style="display:none;margin-bottom:24px;">
+        <div class="stats-grid">
+          <div class="stat-card"
+            style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05)); border-color: rgba(99, 102, 241, 0.3);">
+            <h3>👤 用户</h3>
+            <div class="value" id="searchUserName" style="font-size:18px;">-</div>
+          </div>
+          <div class="stat-card"
+            style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05)); border-color: rgba(34, 197, 94, 0.3);">
+            <h3>📊 累计调用</h3>
+            <div class="value" id="searchUserTotal">-</div>
+          </div>
+          <div class="stat-card"
+            style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05)); border-color: rgba(245, 158, 11, 0.3);">
+            <h3>📅 本月调用</h3>
+            <div class="value" id="searchUserMonth">-</div>
+          </div>
+          <div class="stat-card"
+            style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05)); border-color: rgba(239, 68, 68, 0.3);">
+            <h3>📆 今日调用</h3>
+            <div class="value" id="searchUserToday">-</div>
+          </div>
+        </div>
+      </div>
+
       <div class="table-container">
         <div class="table-header">
-          <h2>实时日志</h2>
+          <h2 id="logsTableTitle">实时日志</h2>
           <button class="btn btn-sm btn-success" onclick="loadLogs()">刷新</button>
         </div>
         <div class="table-wrapper">
@@ -488,10 +540,41 @@
 
     <!-- Tab 3: 用户配额 -->
     <div id="tab-users" class="tab-content">
+      <!-- 用户统计卡片 -->
+      <div class="stats-grid" style="margin-bottom: 20px;">
+        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;"
+          onclick="filterByType('unlimited')" id="card-unlimited">
+          <h3>💎 无限畅享</h3>
+          <div class="value" id="statUnlimitedUsers">-</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">点击筛选</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;" onclick="filterByType('pro')"
+          id="card-pro">
+          <h3>⭐ Pro 用户</h3>
+          <div class="value" id="statProUsers">-</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">有额外额度</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;" onclick="filterByType('normal')"
+          id="card-normal">
+          <h3>👤 普通用户</h3>
+          <div class="value" id="statNormalUsers">-</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">仅周免费额度</div>
+        </div>
+        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;" onclick="filterByType('all')"
+          id="card-all">
+          <h3>📊 全部用户</h3>
+          <div class="value" id="statAllUsers">-</div>
+          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">点击显示全部</div>
+        </div>
+      </div>
+
       <div class="actions-panel">
         <div class="form-group">
           <label>查找用户 (ID/昵称)</label>
           <input type="text" id="userSearch" placeholder="输入 ID 或昵称进行过滤..." oninput="filterUsers()">
+        </div>
+        <div style="display:flex;gap:8px;align-items:flex-end;">
+          <span id="currentFilter" style="font-size:13px;color:var(--text-secondary);padding:8px 0;">当前显示: 全部用户</span>
         </div>
       </div>
 
@@ -580,44 +663,144 @@
     }
 
     /* --- Logs --- */
-    async function loadLogs(page = 1) {
+    let currentLogSearch = ''; // 当前搜索的用户
+
+    async function loadLogs(page = 1, searchUser = '') {
       logsPage = page;
-      const res = await fetch(`/api/admin/usage-logs?page=${page}&pageSize=20`, {
+      currentLogSearch = searchUser;
+
+      let url = `/api/admin/usage-logs?page=${page}&pageSize=20`;
+      if (searchUser) {
+        url += `&user=${encodeURIComponent(searchUser)}`;
+      }
+
+      const res = await fetch(url, {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       const data = await res.json();
       if (data.success) {
         const tbody = document.getElementById('logsTableBody');
-        tbody.innerHTML = data.data.logs.map(log => {
-          // 获取 IP 位置信息
-          const ipLocation = log.ipLocation ? log.ipLocation.location : log.ip;
-          const locationDetail = log.ipLocation
-            ? [log.ipLocation.province, log.ipLocation.city, log.ipLocation.district].filter(Boolean).join(' ')
-            : '';
 
-          return `
-          <tr>
-            <td>${new Date(log.timestamp).toLocaleString()}</td>
-            <td>
-              <div style="font-weight:600;color:var(--text-primary)">${log.nickname || log.userId || '匿名'}</div>
-              <div style="font-size:12px;color:var(--text-secondary)">${log.ip}</div>
-            </td>
-            <td><span class="badge badge-accent">${log.apiType}</span></td>
-            <td>第 ${log.cumulativeCount} 次</td>
-            <td style="font-size:12px;color:var(--text-secondary)">
-              <div>📍 ${locationDetail || log.ip}</div>
-            </td>
-          </tr>
-        `}).join('');
+        // 更新表格标题
+        const tableTitle = document.getElementById('logsTableTitle');
+        if (searchUser && data.data.pagination.total > 0) {
+          tableTitle.textContent = `"${searchUser}" 的调用记录 (共 ${data.data.pagination.total} 条)`;
+        } else if (searchUser) {
+          tableTitle.textContent = `未找到 "${searchUser}" 的记录`;
+        } else {
+          tableTitle.textContent = '实时日志';
+        }
 
-        // Simple pagination
-        const totalPages = data.data.pagination.totalPages;
+        if (data.data.logs.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无记录</td></tr>';
+        } else {
+          tbody.innerHTML = data.data.logs.map(log => {
+            // 获取 IP 位置信息
+            const ipLocation = log.ipLocation ? log.ipLocation.location : log.ip;
+            const locationDetail = log.ipLocation
+              ? [log.ipLocation.province, log.ipLocation.city, log.ipLocation.district].filter(Boolean).join(' ')
+              : '';
+
+            return `
+            <tr>
+              <td>${new Date(log.timestamp).toLocaleString()}</td>
+              <td>
+                <div style="font-weight:600;color:var(--text-primary)">${log.nickname || log.userId || '匿名'}</div>
+                <div style="font-size:12px;color:var(--text-secondary)">${log.ip}</div>
+              </td>
+              <td><span class="badge badge-accent">${log.apiType}</span></td>
+              <td>第 ${log.cumulativeCount} 次</td>
+              <td style="font-size:12px;color:var(--text-secondary)">
+                <div>📍 ${locationDetail || log.ip}</div>
+              </td>
+            </tr>
+          `}).join('');
+        }
+
+        // 分页（带搜索参数）
+        const totalPages = data.data.pagination.totalPages || 1;
         const pageContainer = document.getElementById('logsPagination');
         pageContainer.innerHTML = `
-          <button ${page <= 1 ? 'disabled' : ''} onclick="loadLogs(${page - 1})">上一页</button>
+          <button ${page <= 1 ? 'disabled' : ''} onclick="loadLogs(${page - 1}, '${currentLogSearch}')">上一页</button>
           <span style="color:var(--text-secondary);font-size:14px"> ${page} / ${totalPages} </span>
-          <button ${page >= totalPages ? 'disabled' : ''} onclick="loadLogs(${page + 1})">下一页</button>
+          <button ${page >= totalPages ? 'disabled' : ''} onclick="loadLogs(${page + 1}, '${currentLogSearch}')">下一页</button>
         `;
+      }
+    }
+
+    // 搜索用户日志
+    async function searchUserLogs() {
+      const searchInput = document.getElementById('logUserSearch').value.trim();
+      if (!searchInput) {
+        alert('请输入用户ID或昵称');
+        return;
+      }
+
+      // 显示用户统计面板
+      document.getElementById('userStatsPanel').style.display = 'block';
+
+      // 查询用户统计
+      try {
+        const res = await fetch(`/api/admin/user-stats/${encodeURIComponent(searchInput)}`, {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+
+        if (data.success && data.data) {
+          document.getElementById('searchUserName').textContent = data.data.user;
+          document.getElementById('searchUserTotal').textContent = data.data.totalCalls;
+          document.getElementById('searchUserMonth').textContent = data.data.monthCalls;
+          document.getElementById('searchUserToday').textContent = data.data.todayCalls;
+        } else {
+          document.getElementById('searchUserName').textContent = searchInput;
+          document.getElementById('searchUserTotal').textContent = '0';
+          document.getElementById('searchUserMonth').textContent = '0';
+          document.getElementById('searchUserToday').textContent = '0';
+        }
+      } catch (err) {
+        console.error('查询用户统计失败:', err);
+      }
+
+      // 加载该用户的日志
+      loadLogs(1, searchInput);
+    }
+
+    // 清除搜索
+    function clearUserSearch() {
+      document.getElementById('logUserSearch').value = '';
+      document.getElementById('userStatsPanel').style.display = 'none';
+      currentLogSearch = '';
+      loadLogs(1);
+    }
+
+    // 清除所有使用记录
+    async function clearAllLogs() {
+      if (!confirm('⚠️ 确定要清除所有使用记录吗？\n\n这将：\n• 删除所有调用日志\n• 重置用户统计\n• 无法恢复！\n\n请确认操作。')) {
+        return;
+      }
+
+      // 二次确认
+      if (!confirm('🔴 最后确认：真的要清除所有数据吗？')) {
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/usage-logs', {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          alert(`✅ 已清除 ${data.data.deletedCount} 条记录，统计已重置。`);
+          loadStats();
+          loadLogs(1);
+          clearUserSearch();
+        } else {
+          alert('清除失败: ' + data.message);
+        }
+      } catch (err) {
+        alert('操作失败: ' + err.message);
       }
     }
 
@@ -629,8 +812,8 @@
       if (data.success) {
         document.getElementById('statTotalCalls').textContent = data.data.totalCalls;
         document.getElementById('statTotalUsers').textContent = data.data.totalUsers;
-        // Mock specific day
-        document.getElementById('statTodayCalls').textContent = '-';
+        document.getElementById('statTodayCalls').textContent = data.data.todayCalls || 0;
+        document.getElementById('statMonthCalls').textContent = data.data.monthCalls || 0;
       }
     }
 
@@ -756,6 +939,8 @@
 
     /* --- Users --- */
     let allUsers = [];
+    let currentUserFilter = 'all'; // 当前筛选类型
+
     async function loadUsers() {
       const res = await fetch('/api/admin/quota/users', {
         headers: { 'Authorization': `Bearer ${authToken}` }
@@ -763,8 +948,59 @@
       const data = await res.json();
       if (data.success) {
         allUsers = data.data;
-        renderUsers(allUsers);
+        updateUserStats();
+        filterByType(currentUserFilter); // 保持当前筛选状态
       }
+    }
+
+    // 更新用户统计数字
+    function updateUserStats() {
+      const unlimited = allUsers.filter(u => u.isUnlimited);
+      const pro = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
+      const normal = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
+
+      document.getElementById('statUnlimitedUsers').textContent = unlimited.length;
+      document.getElementById('statProUsers').textContent = pro.length;
+      document.getElementById('statNormalUsers').textContent = normal.length;
+      document.getElementById('statAllUsers').textContent = allUsers.length;
+    }
+
+    // 按类型筛选用户
+    function filterByType(type) {
+      currentUserFilter = type;
+      let filtered = [];
+      let filterLabel = '';
+
+      // 更新卡片高亮
+      ['unlimited', 'pro', 'normal', 'all'].forEach(t => {
+        const card = document.getElementById('card-' + t);
+        if (card) {
+          card.style.borderColor = (t === type) ? 'var(--accent)' : 'transparent';
+          card.style.boxShadow = (t === type) ? '0 0 20px var(--accent-glow)' : 'none';
+        }
+      });
+
+      switch (type) {
+        case 'unlimited':
+          filtered = allUsers.filter(u => u.isUnlimited);
+          filterLabel = '💎 无限畅享用户';
+          break;
+        case 'pro':
+          filtered = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
+          filterLabel = '⭐ Pro 用户（有额外额度）';
+          break;
+        case 'normal':
+          filtered = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
+          filterLabel = '👤 普通用户';
+          break;
+        default:
+          filtered = allUsers;
+          filterLabel = '📊 全部用户';
+      }
+
+      document.getElementById('currentFilter').textContent = '当前显示: ' + filterLabel + ' (' + filtered.length + '人)';
+      document.getElementById('userSearch').value = ''; // 清空搜索框
+      renderUsers(filtered);
     }
 
     function renderUsers(users) {
@@ -773,17 +1009,24 @@
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">没有用户配额数据</td></tr>';
         return;
       }
-      tbody.innerHTML = users.map(user => `
+      tbody.innerHTML = users.map(user => {
+        // 判断用户类型并显示对应标签
+        let statusBadge = '';
+        if (user.isUnlimited) {
+          statusBadge = '<span class="badge badge-success">💎 无限畅享</span>';
+        } else if ((user.extraQuota || 0) > 0) {
+          statusBadge = '<span class="badge badge-accent">⭐ Pro</span>';
+        } else {
+          statusBadge = '<span class="badge badge-warning">普通用户</span>';
+        }
+
+        return `
         <tr>
           <td style="font-family:monospace;font-size:12px;">${user.id}</td>
           <td>${user.nickname || '未命名'}</td>
           <td>${user.weeklyUsage || 0} / 5</td>
           <td>${user.extraQuota || 0}</td>
-          <td>
-            ${user.isUnlimited
-          ? '<span class="badge badge-success">无限畅享</span>'
-          : '<span class="badge badge-warning">普通限制</span>'}
-          </td>
+          <td>${statusBadge}</td>
           <td>
             <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger' : 'btn-primary'}" 
               onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})">
@@ -791,12 +1034,30 @@
             </button>
           </td>
         </tr>
-      `).join('');
+      `}).join('');
     }
 
     function filterUsers() {
       const q = document.getElementById('userSearch').value.toLowerCase();
-      const filtered = allUsers.filter(u =>
+      if (!q) {
+        // 如果搜索框为空，恢复到当前筛选状态
+        filterByType(currentUserFilter);
+        return;
+      }
+      // 在当前筛选结果中搜索
+      let baseList = allUsers;
+      switch (currentUserFilter) {
+        case 'unlimited':
+          baseList = allUsers.filter(u => u.isUnlimited);
+          break;
+        case 'pro':
+          baseList = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
+          break;
+        case 'normal':
+          baseList = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
+          break;
+      }
+      const filtered = baseList.filter(u =>
         (u.id && u.id.toLowerCase().includes(q)) ||
         (u.nickname && u.nickname.toLowerCase().includes(q))
       );
