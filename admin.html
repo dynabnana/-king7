@@ -819,38 +819,46 @@
 
     /* --- Codes --- */
     async function loadCodes() {
-      const res = await fetch('/api/admin/codes', {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-        const codes = Object.entries(data.data);
-        const tbody = document.getElementById('codesTableBody');
-        if (codes.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无未使用的兑换码</td></tr>';
-          return;
+      try {
+        const res = await fetch('/api/admin/codes', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        if (data.success) {
+          const codes = Object.entries(data.data || {});
+          const tbody = document.getElementById('codesTableBody');
+          if (codes.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无未使用的兑换码</td></tr>';
+            return;
+          }
+          tbody.innerHTML = codes.map(([code, info]) => {
+            const isUnlimited = info.type === 'unlimited' || info.quota === -1;
+            const quotaDisplay = isUnlimited
+              ? '<span class="badge badge-success">💎 无限畅享</span>'
+              : `<span class="badge badge-warning">${info.quota} 次</span>`;
+            const remarkDisplay = info.remark || '<span style="color:var(--text-secondary)">无</span>';
+            return `
+            <tr>
+              <td><span class="code-text">${code}</span></td>
+              <td>${quotaDisplay}</td>
+              <td>
+                <span id="remark-${code}">${remarkDisplay}</span>
+                <button class="copy-btn" onclick="editCodeRemark('${code}')" style="margin-left:4px;">编辑</button>
+              </td>
+              <td>${new Date(info.createTime).toLocaleDateString()}</td>
+              <td>
+                <button class="copy-btn" onclick="navigator.clipboard.writeText('${code}')">复制</button>
+                <button class="copy-btn" onclick="deleteCode('${code}')" style="margin-left:4px;color:var(--danger);">删除</button>
+              </td>
+            </tr>
+          `}).join('');
+        } else {
+          console.error('加载兑换码失败:', data.message);
+          document.getElementById('codesTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger)">加载失败: ' + (data.message || '未知错误') + '</td></tr>';
         }
-        tbody.innerHTML = codes.map(([code, info]) => {
-          const isUnlimited = info.type === 'unlimited' || info.quota === -1;
-          const quotaDisplay = isUnlimited
-            ? '<span class="badge badge-success">💎 无限畅享</span>'
-            : `<span class="badge badge-warning">${info.quota} 次</span>`;
-          const remarkDisplay = info.remark || '<span style="color:var(--text-secondary)">无</span>';
-          return `
-          <tr>
-            <td><span class="code-text">${code}</span></td>
-            <td>${quotaDisplay}</td>
-            <td>
-              <span id="remark-${code}">${remarkDisplay}</span>
-              <button class="copy-btn" onclick="editCodeRemark('${code}')" style="margin-left:4px;">编辑</button>
-            </td>
-            <td>${new Date(info.createTime).toLocaleDateString()}</td>
-            <td>
-              <button class="copy-btn" onclick="navigator.clipboard.writeText('${code}')">复制</button>
-              <button class="copy-btn" onclick="deleteCode('${code}')" style="margin-left:4px;color:var(--danger);">删除</button>
-            </td>
-          </tr>
-        `}).join('');
+      } catch (err) {
+        console.error('加载兑换码失败:', err);
+        document.getElementById('codesTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger)">加载失败: ' + err.message + '</td></tr>';
       }
     }
 
@@ -858,19 +866,26 @@
       const amount = document.getElementById('codeAmount').value;
       const count = document.getElementById('codeCount').value;
 
-      const res = await fetch('/api/admin/codes/generate', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ amount, count })
-      });
+      try {
+        const res = await fetch('/api/admin/codes/generate', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ amount, count })
+        });
 
-      const data = await res.json();
-      if (data.success) {
-        alert(`成功生成 ${data.data.codes.length} 个兑换码！`);
-        loadCodes();
+        const data = await res.json();
+        if (data.success) {
+          alert(`成功生成 ${data.data.codes.length} 个兑换码！`);
+          loadCodes();
+        } else {
+          alert('生成失败: ' + (data.message || '未知错误'));
+        }
+      } catch (err) {
+        console.error('生成兑换码失败:', err);
+        alert('生成兑换码失败: ' + err.message);
       }
     }
 
@@ -878,20 +893,27 @@
       const count = document.getElementById('unlimitedCodeCount').value;
       const remark = document.getElementById('unlimitedCodeRemark').value;
 
-      const res = await fetch('/api/admin/codes/generate-unlimited', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ count, remark })
-      });
+      try {
+        const res = await fetch('/api/admin/codes/generate-unlimited', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ count, remark })
+        });
 
-      const data = await res.json();
-      if (data.success) {
-        alert(`🎉 成功生成 ${data.data.codes.length} 个无限畅享兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
-        document.getElementById('unlimitedCodeRemark').value = ''; // 清空备注输入框
-        loadCodes();
+        const data = await res.json();
+        if (data.success) {
+          alert(`🎉 成功生成 ${data.data.codes.length} 个无限畅享兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
+          document.getElementById('unlimitedCodeRemark').value = ''; // 清空备注输入框
+          loadCodes();
+        } else {
+          alert('生成失败: ' + (data.message || '未知错误'));
+        }
+      } catch (err) {
+        console.error('生成无限畅享码失败:', err);
+        alert('生成无限畅享码失败: ' + err.message);
       }
     }
 
