@@ -701,11 +701,18 @@
               ? [log.ipLocation.province, log.ipLocation.city, log.ipLocation.district].filter(Boolean).join(' ')
               : '';
 
+            // 获取用户显示名称：优先显示非"匿名"的昵称，否则显示userId，最后显示IP
+            const getUserDisplayName = (log) => {
+              if (log.nickname && log.nickname !== '匿名') return log.nickname;
+              if (log.userId) return log.userId;
+              return log.ip || '匿名';
+            };
+
             return `
             <tr>
               <td>${new Date(log.timestamp).toLocaleString()}</td>
               <td>
-                <div style="font-weight:600;color:var(--text-primary)">${log.nickname || log.userId || '匿名'}</div>
+                <div style="font-weight:600;color:var(--text-primary)">${getUserDisplayName(log)}</div>
                 <div style="font-size:12px;color:var(--text-secondary)">${log.ip}</div>
               </td>
               <td><span class="badge badge-accent">${log.apiType}</span></td>

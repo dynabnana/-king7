@@ -43,55 +43,123 @@ const MODEL_NAME = "gemini-2.5-flash";
 let clientCache = new Map();
 let lastRequestTime = Date.now();
 
-// ========== 用户使用记录系统 ==========
-// 内存中的使用记录缓存
+// ========== 用户使用记录系统（Redis 优先，本地文件降级）==========
+// 内存中的使用记录缓存（用于读取展示，实际数据存在 Redis）
 let usageLogs = [];
 let userStats = new Map(); // 用户累计次数统计
+let usageLogsInitialized = false; // 标记是否已初始化
 
-// 初始化数据目录和加载历史记录
-const initDataStorage = () => {
-  try {
-    // 检查数据目录是否存在
-    if (!fs.existsSync(DATA_DIR)) {
-      console.log(`[Storage] Data directory ${DATA_DIR} does not exist, using memory only`);
-      return;
+// Redis 使用记录相关常量
+const USAGE_LOGS_REDIS_KEY = 'usage:logs';
+const USAGE_STATS_REDIS_KEY = 'usage:stats';
+const MAX_USAGE_LOGS = 500; // Redis 中最多保存 500 条日志
+
+// 从 Redis 或本地文件加载使用记录（异步初始化）
+const initUsageLogs = async () => {
+  if (usageLogsInitialized) return;
+
+  // 先检查 Redis 配置是否可用（需要等待 Redis 配置加载）
+  const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || "";
+  const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+  const canUseRedis = UPSTASH_URL && UPSTASH_TOKEN;
+
+  if (canUseRedis) {
+    try {
+      // 从 Redis 加载使用记录
+      const response = await fetch(UPSTASH_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${UPSTASH_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(['GET', USAGE_LOGS_REDIS_KEY])
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.result) {
+          const parsed = JSON.parse(data.result);
+          usageLogs = parsed.logs || [];
+
+          // 重建用户统计
+          usageLogs.forEach(log => {
+            const key = log.nickname || log.userId || log.ip || "anonymous";
+            userStats.set(key, (userStats.get(key) || 0) + 1);
+          });
+
+          console.log(`[Redis] Loaded ${usageLogs.length} usage logs from Redis`);
+          usageLogsInitialized = true;
+          return;
+        }
+      }
+    } catch (err) {
+      console.error("[Redis] Failed to load usage logs:", err.message);
     }
+  }
 
-    // 尝试加载历史记录
-    if (fs.existsSync(USAGE_LOG_FILE)) {
+  // 降级：从本地文件加载
+  try {
+    if (fs.existsSync(DATA_DIR) && fs.existsSync(USAGE_LOG_FILE)) {
       const data = fs.readFileSync(USAGE_LOG_FILE, "utf-8");
       const parsed = JSON.parse(data);
       usageLogs = parsed.logs || [];
 
       // 重建用户统计
       usageLogs.forEach(log => {
-        const key = log.nickname || log.userId || "anonymous";
+        const key = log.nickname || log.userId || log.ip || "anonymous";
         userStats.set(key, (userStats.get(key) || 0) + 1);
       });
 
-      console.log(`[Storage] Loaded ${usageLogs.length} usage logs from disk`);
+      console.log(`[Storage] Loaded ${usageLogs.length} usage logs from disk (fallback)`);
     }
   } catch (err) {
-    console.error("[Storage] Failed to load usage logs:", err.message);
+    console.error("[Storage] Failed to load usage logs from disk:", err.message);
   }
+
+  usageLogsInitialized = true;
 };
 
-// 保存使用记录到磁盘
-const saveUsageLogs = () => {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      return; // 目录不存在，跳过保存
+// 保存使用记录到 Redis（优先）和本地文件（备份）
+const saveUsageLogs = async () => {
+  const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || "";
+  const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
+  const canUseRedis = UPSTASH_URL && UPSTASH_TOKEN;
+
+  const dataToSave = JSON.stringify({
+    lastUpdated: new Date().toISOString(),
+    totalLogs: usageLogs.length,
+    logs: usageLogs
+  });
+
+  // 优先保存到 Redis
+  if (canUseRedis) {
+    try {
+      const response = await fetch(UPSTASH_URL, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${UPSTASH_TOKEN}`,
+          'Content-Type': 'application/json'
+        },
+        // 使用 SETEX 设置 30 天过期时间
+        body: JSON.stringify(['SETEX', USAGE_LOGS_REDIS_KEY, 30 * 24 * 60 * 60, dataToSave])
+      });
+
+      if (response.ok) {
+        // Redis 保存成功，不需要本地备份
+        return;
+      }
+    } catch (err) {
+      console.error("[Redis] Failed to save usage logs:", err.message);
     }
+  }
 
-    const data = JSON.stringify({
-      lastUpdated: new Date().toISOString(),
-      totalLogs: usageLogs.length,
-      logs: usageLogs
-    }, null, 2);
-
-    fs.writeFileSync(USAGE_LOG_FILE, data, "utf-8");
+  // 降级：保存到本地文件
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      fs.writeFileSync(USAGE_LOG_FILE, dataToSave, "utf-8");
+    }
   } catch (err) {
-    console.error("[Storage] Failed to save usage logs:", err.message);
+    console.error("[Storage] Failed to save usage logs to disk:", err.message);
   }
 };
 
@@ -149,8 +217,13 @@ const getIpLocation = async (ip) => {
   }
 };
 
-// 记录用户使用（带 IP 地理位置）
+// 记录用户使用（带 IP 地理位置）- 现在存储到 Redis
 const logUserUsage = async (req, apiType, extra = {}) => {
+  // 确保日志系统已初始化
+  if (!usageLogsInitialized) {
+    await initUsageLogs();
+  }
+
   const { nickname, userId } = req.body || {};
 
   // 获取用户IP
@@ -159,7 +232,7 @@ const logUserUsage = async (req, apiType, extra = {}) => {
     || req.socket?.remoteAddress
     || "unknown";
 
-  // 获取 IP 地理位置（异步但不阻塞主流程）
+  // 获取 IP 地理位置
   let locationInfo = { province: '', city: '', district: '', location: ip };
   try {
     locationInfo = await getIpLocation(ip);
@@ -177,7 +250,7 @@ const logUserUsage = async (req, apiType, extra = {}) => {
     nickname: nickname || null,
     userId: userId || null,
     ip: ip,
-    ipLocation: locationInfo, // 新增：IP 地理位置信息（省+市+区）
+    ipLocation: locationInfo,
     apiType: apiType,
     cumulativeCount: count,
     ...extra
@@ -185,21 +258,25 @@ const logUserUsage = async (req, apiType, extra = {}) => {
 
   usageLogs.push(logEntry);
 
-  // 限制内存中的记录数量（保留最近100条，节省内存）
-  if (usageLogs.length > 100) {
-    usageLogs = usageLogs.slice(-100);
+  // 限制记录数量（保留最近 MAX_USAGE_LOGS 条）
+  if (usageLogs.length > MAX_USAGE_LOGS) {
+    usageLogs = usageLogs.slice(-MAX_USAGE_LOGS);
   }
 
-  // 异步保存到磁盘
-  setImmediate(saveUsageLogs);
+  // 异步保存到 Redis
+  saveUsageLogs().catch(err => {
+    console.error("[Usage] Failed to save logs:", err.message);
+  });
 
   console.log(`[Usage] ${nickname || userId || "匿名"} (${locationInfo.location || ip}) - ${apiType} - 第${count}次使用`);
 
   return logEntry;
 };
 
-// 初始化存储
-initDataStorage();
+// 异步初始化使用记录（服务启动时）
+initUsageLogs().catch(err => {
+  console.error("[Init] Failed to initialize usage logs:", err.message);
+});
 
 // ========== 用户配额与兑换码系统（纯 Redis 模式）==========
 // Upstash Redis 配置（从环境变量读取）
@@ -487,20 +564,63 @@ const releaseSlot = () => {
     next();
   }
 };
+// ========== 内存管理与空闲资源清理 ==========
+// 空闲检测阈值
+const IDLE_THRESHOLD_MS = 2 * 60 * 1000; // 2分钟空闲后开始清理
+const DEEP_CLEAN_THRESHOLD_MS = 5 * 60 * 1000; // 5分钟空闲后深度清理
 
-// 定期清理空闲资源（每5分钟检查一次）
-setInterval(() => {
+// 清理空闲资源
+const cleanIdleResources = (forceDeepClean = false) => {
   const idleTime = Date.now() - lastRequestTime;
-  // 如果空闲超过3分钟，清理客户端缓存
-  if (idleTime > 3 * 60 * 1000 && clientCache.size > 0) {
-    clientCache.clear();
-    // 建议 V8 进行垃圾回收（如果可用）
+  let cleaned = [];
+
+  // 2分钟空闲：轻度清理
+  if (idleTime > IDLE_THRESHOLD_MS || forceDeepClean) {
+    // 清理 Gemini 客户端缓存
+    if (clientCache.size > 0) {
+      clientCache.clear();
+      cleaned.push('clientCache');
+    }
+
+    // 清理 IP 位置缓存
+    if (ipLocationCache.size > 0) {
+      ipLocationCache.clear();
+      cleaned.push('ipLocationCache');
+    }
+  }
+
+  // 5分钟空闲：深度清理
+  if (idleTime > DEEP_CLEAN_THRESHOLD_MS || forceDeepClean) {
+    // 卸载 Gemini SDK 模块（下次使用时会重新加载）
+    if (GoogleGenAI !== null) {
+      GoogleGenAI = null;
+      cleaned.push('GoogleGenAI');
+    }
+
+    // 清理内存中的使用记录缓存（数据已在 Redis，可以安全清理）
+    if (usageLogs.length > 0) {
+      usageLogs = [];
+      userStats.clear();
+      usageLogsInitialized = false; // 下次访问时重新从 Redis 加载
+      cleaned.push('usageLogs');
+    }
+
+    // 建议 V8 进行垃圾回收（需要 --expose-gc 启动参数）
     if (global.gc) {
       global.gc();
+      cleaned.push('GC');
     }
-    console.log(`[Memory] Cleared client cache after ${Math.round(idleTime / 1000)}s idle`);
   }
-}, 5 * 60 * 1000);
+
+  if (cleaned.length > 0) {
+    console.log(`[Memory] Cleaned after ${Math.round(idleTime / 1000)}s idle: ${cleaned.join(', ')}`);
+  }
+};
+
+// 定期清理空闲资源（每2分钟检查一次）
+setInterval(() => {
+  cleanIdleResources();
+}, 2 * 60 * 1000);
 
 const IMAGE_SYSTEM_PROMPT = `
 You are a medical data assistant for kidney disease patients.
@@ -706,6 +826,70 @@ app.use((req, res, next) => {
 app.use(express.json({ limit: "10mb" }));
 
 // ===========================================
+// 健康检查与状态监控端点
+// ===========================================
+app.get("/api/health", (req, res) => {
+  // 更新最后请求时间
+  lastRequestTime = Date.now();
+
+  const memUsage = process.memoryUsage();
+  const uptimeSeconds = Math.floor((Date.now() - apiCallStats.startTime) / 1000);
+  const idleSeconds = Math.floor((Date.now() - lastRequestTime) / 1000);
+
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    uptime: {
+      seconds: uptimeSeconds,
+      display: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m`
+    },
+    memory: {
+      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
+      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
+      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
+      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
+    },
+    caches: {
+      clientCache: clientCache.size,
+      ipLocationCache: ipLocationCache.size,
+      usageLogs: usageLogs.length,
+      sdkLoaded: GoogleGenAI !== null
+    },
+    stats: {
+      totalCalls: apiCallStats.totalCalls,
+      imageAnalyze: apiCallStats.imageAnalyze,
+      imageBase64: apiCallStats.imageBase64Analyze,
+      excelAnalyze: apiCallStats.excelAnalyze
+    },
+    idleSeconds: idleSeconds
+  });
+});
+
+// ===========================================
+// API 统计端点（供网页前端使用）
+// ===========================================
+app.get("/api/stats", (req, res) => {
+  lastRequestTime = Date.now();
+
+  const uptimeSeconds = Math.floor((Date.now() - apiCallStats.startTime) / 1000);
+
+  res.json({
+    success: true,
+    stats: {
+      imageAnalyze: apiCallStats.imageAnalyze,
+      imageBase64Analyze: apiCallStats.imageBase64Analyze,
+      excelAnalyze: apiCallStats.excelAnalyze,
+      totalCalls: apiCallStats.totalCalls,
+      uptime: {
+        hours: Math.floor(uptimeSeconds / 3600),
+        minutes: Math.floor((uptimeSeconds % 3600) / 60),
+        display: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m`
+      }
+    }
+  });
+});
+
+// ===========================================
 // API 端点：图片识别 - 用于网页端（支持 multipart/form-data）
 // ===========================================
 app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
@@ -749,6 +933,12 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
 
     // 统计成功调用（保存到 Redis）
     incrementApiStats('image');
+
+    // 记录用户使用（网页端没有用户ID，只记录 IP）
+    await logUserUsage(req, "image-web", {
+      itemsCount: data.items?.length || 0,
+      title: data.title || null
+    });
 
     return res.json(data);
   } catch (err) {
@@ -851,7 +1041,7 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     incrementApiStats('image-base64');
 
     // 记录用户使用（小程序端需要传递 nickname 字段）
-    logUserUsage(req, "image-base64", {
+    await logUserUsage(req, "image-base64", {
       itemsCount: data.items?.length || 0,
       title: data.title || null
     });
@@ -1219,12 +1409,18 @@ app.get("/api/admin/user-stats/:userId", verifyAdminToken, (req, res) => {
 // ===========================================
 // 管理后台 API - 清除记录（谨慎使用）
 // ===========================================
-app.delete("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
+app.delete("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
   const previousCount = usageLogs.length;
   const previousUsers = userStats.size;
   usageLogs = [];
   userStats.clear();
-  saveUsageLogs();
+
+  // 异步保存（会清除 Redis 中的数据）
+  try {
+    await saveUsageLogs();
+  } catch (err) {
+    console.error("[Admin] Failed to save after clear:", err.message);
+  }
 
   console.log(`[Admin] Cleared ${previousCount} logs and ${previousUsers} user stats`);
 
@@ -1500,6 +1696,8 @@ if (!process.env.VERCEL) {
     console.log(
       `Environment API Keys configured: ${ENV_API_KEYS.length > 0 ? ENV_API_KEYS.length : "None (will use request header)"}`
     );
+    console.log(`[Memory] Idle cleanup: ${IDLE_THRESHOLD_MS / 1000}s light, ${DEEP_CLEAN_THRESHOLD_MS / 1000}s deep`);
+    console.log(`[Memory] Initial heap: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
   });
 }
 
