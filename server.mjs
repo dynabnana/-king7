@@ -1261,7 +1261,9 @@ const verifyAdminToken = (req, res, next) => {
 // ===========================================
 // 管理后台 API - 获取使用记录（支持用户搜索）
 // ===========================================
-app.get("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
+app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
+  // 关键修复：确保从 Redis 加载最新的使用日志（可能在空闲清理后被清空）
+  await initUsageLogs();
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 50;
   const searchUser = req.query.user?.trim()?.toLowerCase() || '';
@@ -1301,7 +1303,9 @@ app.get("/api/admin/usage-logs", verifyAdminToken, (req, res) => {
 // ===========================================
 // 管理后台 API - 获取用户统计汇总（含今日/本月统计）
 // ===========================================
-app.get("/api/admin/user-stats", verifyAdminToken, (req, res) => {
+app.get("/api/admin/user-stats", verifyAdminToken, async (req, res) => {
+  // 关键修复：确保从 Redis 加载最新的使用日志
+  await initUsageLogs();
   // 按用户汇总统计
   const userSummary = [];
   const userLastSeen = new Map();
@@ -1351,7 +1355,9 @@ app.get("/api/admin/user-stats", verifyAdminToken, (req, res) => {
 // ===========================================
 // 管理后台 API - 查询单个用户统计
 // ===========================================
-app.get("/api/admin/user-stats/:userId", verifyAdminToken, (req, res) => {
+app.get("/api/admin/user-stats/:userId", verifyAdminToken, async (req, res) => {
+  // 关键修复：确保从 Redis 加载最新的使用日志
+  await initUsageLogs();
   const searchUser = req.params.userId?.trim()?.toLowerCase() || '';
 
   if (!searchUser) {
