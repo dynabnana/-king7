@@ -1576,6 +1576,42 @@ app.post("/api/admin/users/unlimited", verifyAdminToken, async (req, res) => {
   res.json({ success: true, data: users[userId] });
 });
 
+// [Admin] 给用户增加额外额度（纯 Redis 模式）
+app.post("/api/admin/users/add-quota", verifyAdminToken, async (req, res) => {
+  const { userId, amount } = req.body;
+  const addAmount = parseInt(amount) || 0;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, message: "请提供用户ID" });
+  }
+
+  if (addAmount <= 0) {
+    return res.status(400).json({ success: false, message: "增加的额度必须大于0" });
+  }
+
+  const users = await getQuotaUsers();
+
+  if (!users[userId]) {
+    return res.status(404).json({ success: false, message: "用户不存在或未初始化" });
+  }
+
+  // 增加额外额度
+  users[userId].extraQuota = (users[userId].extraQuota || 0) + addAmount;
+  await saveQuotaUsers(users);
+
+  console.log(`[Admin] Added ${addAmount} quota to user ${userId}, new total: ${users[userId].extraQuota}`);
+
+  res.json({
+    success: true,
+    message: `成功为用户增加 ${addAmount} 次额度`,
+    data: {
+      userId,
+      newExtraQuota: users[userId].extraQuota,
+      nickname: users[userId].nickname
+    }
+  });
+});
+
 // [User] 兑换额度（纯 Redis 模式）
 app.post("/api/user/redeem", async (req, res) => {
   const { code, userId, nickname } = req.body;

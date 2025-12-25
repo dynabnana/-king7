@@ -1057,10 +1057,16 @@
           <td>${user.extraQuota || 0}</td>
           <td>${statusBadge}</td>
           <td>
-            <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger' : 'btn-primary'}" 
-              onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})">
-              ${user.isUnlimited ? '取消无限' : '设为无限'}
-            </button>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-primary" style="font-size:12px;padding:6px 10px;"
+                onclick="addUserQuota('${user.id}')">
+                +额度
+              </button>
+              <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger' : 'btn-success'}" style="font-size:12px;padding:6px 10px;"
+                onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})">
+                ${user.isUnlimited ? '取消无限' : '设为无限'}
+              </button>
+            </div>
           </td>
         </tr>
       `}).join('');
@@ -1091,6 +1097,40 @@
         (u.nickname && u.nickname.toLowerCase().includes(q))
       );
       renderUsers(filtered);
+    }
+
+    // 给用户增加额度
+    async function addUserQuota(userId) {
+      const amount = prompt('请输入要增加的额度次数:', '10');
+      if (amount === null) return; // 用户取消
+
+      const addAmount = parseInt(amount);
+      if (isNaN(addAmount) || addAmount <= 0) {
+        alert('请输入有效的正整数');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/admin/users/add-quota', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ userId, amount: addAmount })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          alert(`✅ ${data.message}\n\n用户当前额外额度: ${data.data.newExtraQuota} 次`);
+          loadUsers();
+        } else {
+          alert('操作失败: ' + (data.message || '未知错误'));
+        }
+      } catch (err) {
+        console.error('增加额度失败:', err);
+        alert('增加额度失败: ' + err.message);
+      }
     }
 
     async function toggleUnlimited(userId, isUnlimited) {
