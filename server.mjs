@@ -1249,44 +1249,39 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     });
   }
 
-  // 按时间正序遍历，为每条日志计算截止到该时间点的累计次数
+  // 计算每个用户的当前最新累计总次数和本月次数
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  // 用于记录每个用户截止到每条日志时的累计次数
-  const userCumulativeTotal = new Map();
-  const userCumulativeMonth = new Map();
+  // 用于记录每个用户的当前总次数和本月次数
+  const userTotalCalls = new Map();
+  const userMonthCalls = new Map();
 
-  // 按时间正序遍历（usageLogs 本身是按时间正序存储的）
+  // 遍历所有日志，计算每个用户的累计统计
   usageLogs.forEach(log => {
     const userKey = log.nickname || log.userId || log.ip || 'anonymous';
     const logTime = new Date(log.timestamp).getTime();
 
     // 累加该用户的总次数
-    const prevTotal = userCumulativeTotal.get(userKey) || 0;
-    userCumulativeTotal.set(userKey, prevTotal + 1);
+    userTotalCalls.set(userKey, (userTotalCalls.get(userKey) || 0) + 1);
 
     // 累加该用户的本月次数
     if (logTime >= monthStart) {
-      const prevMonth = userCumulativeMonth.get(userKey) || 0;
-      userCumulativeMonth.set(userKey, prevMonth + 1);
+      userMonthCalls.set(userKey, (userMonthCalls.get(userKey) || 0) + 1);
     }
-
-    // 将累计值直接写入日志对象（临时修改）
-    log._userTotalAtTime = userCumulativeTotal.get(userKey);
-    log._userMonthAtTime = userCumulativeMonth.get(userKey) || 0;
   });
 
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const paginatedLogs = sortedLogs.slice(start, end);
 
-  // 为每条日志返回计算好的累计数据
+  // 为每条日志返回该用户的当前最新累计数据
   const enrichedLogs = paginatedLogs.map(log => {
+    const userKey = log.nickname || log.userId || log.ip || 'anonymous';
     return {
       ...log,
-      userTotalCalls: log._userTotalAtTime || log.cumulativeCount || 0,
-      userMonthCalls: log._userMonthAtTime || 0
+      userTotalCalls: userTotalCalls.get(userKey) || 0,
+      userMonthCalls: userMonthCalls.get(userKey) || 0
     };
   });
 
