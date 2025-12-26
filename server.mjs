@@ -1267,9 +1267,23 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
   const userTotalCalls = new Map();
   const userMonthCalls = new Map();
 
+  // 统一的用户标识计算函数
+  const getUserKey = (log) => {
+    // nickname 要有值且不是 '匿名'
+    if (log.nickname && log.nickname !== '匿名' && log.nickname !== 'null') {
+      return log.nickname;
+    }
+    // userId 要有值
+    if (log.userId && log.userId !== 'null') {
+      return log.userId;
+    }
+    // 最后用 IP
+    return log.ip || 'anonymous';
+  };
+
   // 遍历所有日志，计算每个用户的累计统计
   usageLogs.forEach(log => {
-    const userKey = log.nickname || log.userId || log.ip || 'anonymous';
+    const userKey = getUserKey(log);
     const logTime = new Date(log.timestamp).getTime();
 
     // 累加该用户的总次数
@@ -1281,13 +1295,16 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     }
   });
 
+  // 调试日志：输出统计结果
+  console.log('[Admin API] User stats:', Object.fromEntries(userTotalCalls));
+
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const paginatedLogs = sortedLogs.slice(start, end);
 
   // 为每条日志返回该用户的当前最新累计数据
   const enrichedLogs = paginatedLogs.map(log => {
-    const userKey = log.nickname || log.userId || log.ip || 'anonymous';
+    const userKey = getUserKey(log);
     return {
       ...log,
       userTotalCalls: userTotalCalls.get(userKey) || 0,
