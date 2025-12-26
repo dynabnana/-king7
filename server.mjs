@@ -1249,14 +1249,42 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     });
   }
 
+  // 预先计算所有用户的统计数据
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  // 统计每个用户的总次数和本月次数
+  const userStatsMap = new Map();
+  usageLogs.forEach(log => {
+    const userKey = log.nickname || log.userId || log.ip || 'anonymous';
+    if (!userStatsMap.has(userKey)) {
+      userStatsMap.set(userKey, { total: 0, month: 0 });
+    }
+    const stats = userStatsMap.get(userKey);
+    stats.total++;
+    const logTime = new Date(log.timestamp).getTime();
+    if (logTime >= monthStart) stats.month++;
+  });
+
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const paginatedLogs = sortedLogs.slice(start, end);
 
+  // 为每条日志补充用户统计数据
+  const enrichedLogs = paginatedLogs.map(log => {
+    const userKey = log.nickname || log.userId || log.ip || 'anonymous';
+    const stats = userStatsMap.get(userKey) || { total: 0, month: 0 };
+    return {
+      ...log,
+      userTotalCalls: stats.total,
+      userMonthCalls: stats.month
+    };
+  });
+
   res.json({
     success: true,
     data: {
-      logs: paginatedLogs,
+      logs: enrichedLogs,
       pagination: {
         page,
         pageSize,
