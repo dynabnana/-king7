@@ -56,7 +56,15 @@ const USAGE_STATS_REDIS_KEY = 'usage:stats';
 const MAX_USAGE_LOGS = 500; // Redis 中最多保存 500 条日志
 
 // 从 Redis 或本地文件加载使用记录（异步初始化，带锁防止并发）
-const initUsageLogs = async () => {
+const initUsageLogs = async (forceReload = false) => {
+  // 如果强制重新加载，先清除状态
+  if (forceReload) {
+    usageLogsInitialized = false;
+    initUsageLogsPromise = null;
+    usageLogs = [];
+    userStats.clear();
+  }
+
   if (usageLogsInitialized) return;
 
   // 如果已有初始化任务在执行，等待它完成
@@ -1232,8 +1240,8 @@ const verifyAdminToken = (req, res, next) => {
 // 管理后台 API - 获取使用记录（支持用户搜索）
 // ===========================================
 app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
-  // 关键修复：确保从 Redis 加载最新的使用日志（可能在空闲清理后被清空）
-  await initUsageLogs();
+  // 强制从 Redis 重新加载最新数据
+  await initUsageLogs(true);
   const page = parseInt(req.query.page) || 1;
   const pageSize = parseInt(req.query.pageSize) || 50;
   const searchUser = req.query.user?.trim()?.toLowerCase() || '';
@@ -1306,8 +1314,8 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
 // 管理后台 API - 获取用户统计汇总（含今日/本月统计）
 // ===========================================
 app.get("/api/admin/user-stats", verifyAdminToken, async (req, res) => {
-  // 关键修复：确保从 Redis 加载最新的使用日志
-  await initUsageLogs();
+  // 强制从 Redis 重新加载最新数据
+  await initUsageLogs(true);
   // 按用户汇总统计
   const userSummary = [];
   const userLastSeen = new Map();
