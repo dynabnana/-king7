@@ -100,6 +100,7 @@ const _doInitUsageLogs = async () => {
 
           console.log(`[Redis] Loaded ${usageLogs.length} usage logs from Redis`);
           usageLogsInitialized = true;
+          initUsageLogsPromise = null; // 清除锁，确保空闲清理后能重新初始化
           return;
         }
       }
@@ -630,10 +631,11 @@ const cleanIdleResources = (forceDeepClean = false) => {
     }
 
     // 清理内存中的使用记录缓存（数据已在 Redis，可以安全清理）
-    if (usageLogs.length > 0) {
+    if (usageLogs.length > 0 || usageLogsInitialized) {
       usageLogs = [];
       userStats.clear();
       usageLogsInitialized = false; // 下次访问时重新从 Redis 加载
+      initUsageLogsPromise = null;  // 清除 Promise 锁，确保能重新初始化
       cleaned.push('usageLogs');
     }
 
