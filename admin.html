@@ -5,19 +5,30 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>检查单助手管理后台</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg-primary: #0a0a0f;
-      --bg-secondary: #12121a;
-      --bg-card: #1a1a24;
-      --text-primary: #ffffff;
-      --text-secondary: #a0a0b0;
-      --accent: #6366f1;
-      --accent-glow: rgba(99, 102, 241, 0.3);
-      --success: #22c55e;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --primary-light: #eef2ff;
+      --bg-body: #f3f4f6;
+      --bg-card: #ffffff;
+      --bg-sidebar: #ffffff;
+      --text-main: #111827;
+      --text-muted: #6b7280;
+      --border: #e5e7eb;
+      --success: #10b981;
+      --success-bg: #ecfdf5;
       --warning: #f59e0b;
+      --warning-bg: #fffbeb;
       --danger: #ef4444;
-      --border: rgba(255, 255, 255, 0.08);
+      --danger-bg: #fef2f2;
+      --radius: 12px;
+      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
     }
 
     * {
@@ -27,218 +38,368 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      background: var(--bg-primary);
-      color: var(--text-primary);
-      min-height: 100vh;
-      line-height: 1.6;
+      font-family: 'Inter', -apple-system, sans-serif;
+      background: var(--bg-body);
+      color: var(--text-main);
+      height: 100vh;
+      overflow: hidden;
     }
 
-    /* 登录页面 */
-    .login-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-
-    .login-box {
-      background: var(--bg-card);
-      border: 1px solid var(--border);
-      border-radius: 16px;
-      padding: 40px;
-      width: 100%;
-      max-width: 400px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
-    }
-
-    .login-box h1 {
-      font-size: 24px;
-      text-align: center;
-      margin-bottom: 8px;
-      background: linear-gradient(135deg, #fff, var(--accent));
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-    }
-
-    .form-group {
-      margin-bottom: 20px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 14px;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-    }
-
-    .form-group input {
-      width: 100%;
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--bg-secondary);
-      color: var(--text-primary);
-      font-size: 16px;
-      transition: all 0.2s;
-    }
-
-    .form-group input:focus {
-      outline: none;
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px var(--accent-glow);
-    }
-
+    /* Common Utilities */
     .btn {
-      padding: 12px 24px;
-      border: none;
-      border-radius: 10px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
+      padding: 0.5rem 1rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+      gap: 0.5rem;
     }
 
     .btn-primary {
-      background: linear-gradient(135deg, var(--accent), #8b5cf6);
+      background-color: var(--primary);
       color: white;
-      width: 100%;
     }
 
     .btn-primary:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 10px 30px var(--accent-glow);
+      background-color: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background-color: white;
+      border-color: var(--border);
+      color: var(--text-main);
+    }
+
+    .btn-secondary:hover {
+      background-color: var(--bg-body);
     }
 
     .btn-danger {
-      background: var(--danger);
+      background-color: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .btn-danger-solid {
+      background-color: var(--danger);
       color: white;
     }
 
     .btn-success {
-      background: var(--success);
+      background-color: var(--success);
       color: white;
     }
 
     .btn-sm {
-      padding: 8px 16px;
-      font-size: 13px;
-      width: auto;
+      padding: 0.25rem 0.75rem;
+      font-size: 0.75rem;
     }
 
-    /* 主界面 */
-    .dashboard {
-      display: none;
-      padding: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
-    }
-
-    .dashboard.active {
-      display: block;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
+    .badge {
+      display: inline-flex;
       align-items: center;
-      margin-bottom: 24px;
-      padding-bottom: 24px;
+      padding: 0.125rem 0.5rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .badge-success {
+      background-color: var(--success-bg);
+      color: var(--success);
+    }
+
+    .badge-warning {
+      background-color: var(--warning-bg);
+      color: var(--warning);
+    }
+
+    .badge-danger {
+      background-color: var(--danger-bg);
+      color: var(--danger);
+    }
+
+    .badge-primary {
+      background-color: var(--primary-light);
+      color: var(--primary);
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      border-radius: 0.5rem;
+      border: 1px solid var(--border);
+      padding: 0.625rem 0.875rem;
+      color: var(--text-main);
+      font-size: 0.875rem;
+      background: var(--bg-card);
+    }
+
+    input:focus {
+      outline: 2px solid var(--primary);
+      outline-offset: -1px;
+      border-color: transparent;
+    }
+
+    /* Login Page */
+    .login-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: linear-gradient(135deg, #e0e7ff 0%, #f3f4f6 100%);
+    }
+
+    .login-card {
+      background: white;
+      padding: 2.5rem;
+      border-radius: 1rem;
+      box-shadow: var(--shadow-lg);
+      width: 100%;
+      max-width: 24rem;
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+
+    .login-header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .login-header p {
+      color: var(--text-muted);
+      font-size: 0.875rem;
+      margin-top: 0.5rem;
+    }
+
+    /* Dashboard Layout */
+    .dashboard-layout {
+      display: flex;
+      height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 260px;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .sidebar-header {
+      height: 4rem;
+      display: flex;
+      align-items: center;
+      padding: 0 1.5rem;
       border-bottom: 1px solid var(--border);
     }
 
-    .header h1 {
-      font-size: 24px;
-      color: var(--text-primary);
-    }
-
-    /* 导航Tabs */
-    .tabs {
+    .sidebar-header h2 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--primary);
       display: flex;
-      gap: 12px;
-      margin-bottom: 24px;
+      align-items: center;
+      gap: 0.5rem;
     }
 
-    .tab-btn {
+    .sidebar-nav {
+      flex: 1;
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 0.5rem;
+      color: var(--text-muted);
       background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text-secondary);
-      padding: 10px 20px;
-      border-radius: 8px;
+      border: none;
+      width: 100%;
+      text-align: left;
+      font-size: 0.875rem;
+      font-weight: 500;
       cursor: pointer;
       transition: all 0.2s;
     }
 
-    .tab-btn.active {
-      background: var(--accent);
-      color: white;
-      border-color: var(--accent);
+    .nav-item:hover {
+      background-color: var(--bg-body);
+      color: var(--text-main);
     }
 
-    .tab-btn:hover:not(.active) {
-      background: var(--bg-card);
-      color: var(--text-primary);
+    .nav-item.active {
+      background-color: var(--primary-light);
+      color: var(--primary);
     }
 
-    /* 内容区域 */
+    .sidebar-footer {
+      padding: 1rem;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .top-bar {
+      height: 4rem;
+      border-bottom: 1px solid var(--border);
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 2rem;
+      flex-shrink: 0;
+    }
+
+    .page-title {
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text-main);
+    }
+
+    .content-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 2rem;
+    }
+
     .tab-content {
       display: none;
+      animation: fadeIn 0.3s ease;
     }
 
     .tab-content.active {
       display: block;
     }
 
-    /* 卡片网格 */
-    .stats-grid {
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(5px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Cards & Grids */
+    .grid-4 {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
     }
 
     .stat-card {
-      background: var(--bg-card);
+      background: white;
+      border-radius: var(--radius);
+      padding: 1.5rem;
+      box-shadow: var(--shadow-sm);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 24px;
-      position: relative;
-      overflow: hidden;
+      transition: transform 0.2s, box-shadow 0.2s;
     }
 
-    .stat-card h3 {
-      font-size: 13px;
-      color: var(--text-secondary);
-      margin-bottom: 8px;
-      text-transform: uppercase;
+    .stat-card.interactive:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+      border-color: var(--primary);
     }
 
-    .stat-card .value {
-      font-size: 28px;
+    .stat-title {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+    }
+
+    .stat-value {
+      font-size: 1.875rem;
       font-weight: 700;
-      color: white;
+      color: var(--text-main);
     }
 
-    /* 表格通用 */
-    .table-container {
-      background: var(--bg-card);
+    .stat-desc {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    /* Action Panels */
+    .action-panel {
+      background: white;
+      padding: 1.5rem;
+      border-radius: var(--radius);
       border: 1px solid var(--border);
-      border-radius: 12px;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: flex-end;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .panel-title {
+      width: 100%;
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-group {
+      flex: 1;
+      min-width: 200px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      margin-bottom: 0.5rem;
+      color: var(--text-main);
+    }
+
+    /* Table */
+    .table-card {
+      background: white;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
       overflow: hidden;
-      margin-bottom: 24px;
     }
 
     .table-header {
-      padding: 20px 24px;
+      padding: 1.5rem;
       border-bottom: 1px solid var(--border);
       display: flex;
       justify-content: space-between;
       align-items: center;
+    }
+
+    .table-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
     }
 
     .table-wrapper {
@@ -248,22 +409,24 @@
     table {
       width: 100%;
       border-collapse: collapse;
-    }
-
-    th,
-    td {
-      padding: 16px 24px;
-      text-align: left;
-      border-bottom: 1px solid var(--border);
-      font-size: 14px;
+      font-size: 0.875rem;
     }
 
     th {
-      background: var(--bg-secondary);
-      color: var(--text-secondary);
-      font-weight: 600;
-      font-size: 12px;
+      text-align: left;
+      padding: 0.75rem 1.5rem;
+      background: #f9fafb;
+      color: var(--text-muted);
+      font-weight: 500;
+      font-size: 0.75rem;
       text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 1rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-main);
     }
 
     tr:last-child td {
@@ -271,336 +434,281 @@
     }
 
     tr:hover td {
-      background: rgba(255, 255, 255, 0.02);
-    }
-
-    /* 标签 */
-    .badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .badge-success {
-      background: rgba(34, 197, 94, 0.1);
-      color: var(--success);
-    }
-
-    .badge-warning {
-      background: rgba(245, 158, 11, 0.1);
-      color: var(--warning);
-    }
-
-    .badge-danger {
-      background: rgba(239, 68, 68, 0.1);
-      color: var(--danger);
-    }
-
-    .badge-accent {
-      background: rgba(99, 102, 241, 0.1);
-      color: var(--accent);
-    }
-
-    .code-text {
-      font-family: 'SF Mono', monospace;
-      letter-spacing: 1px;
-      color: var(--accent);
-      user-select: all;
-    }
-
-    .copy-btn {
-      padding: 4px 8px;
-      font-size: 12px;
-      margin-left: 8px;
-      cursor: pointer;
-      border: 1px solid var(--border);
-      background: transparent;
-      color: var(--text-secondary);
-      border-radius: 4px;
-    }
-
-    .copy-btn:hover {
-      background: var(--bg-secondary);
-      color: white;
-    }
-
-    /* 顶部操作区 */
-    .actions-panel {
-      background: var(--bg-card);
-      padding: 20px;
-      border-radius: 12px;
-      margin-bottom: 24px;
-      border: 1px solid var(--border);
-      display: flex;
-      gap: 16px;
-      align-items: flex-end;
-      flex-wrap: wrap;
-    }
-
-    .actions-panel .form-group {
-      margin-bottom: 0;
-      flex: 1;
-      min-width: 200px;
+      background-color: #f9fafb;
     }
 
     .pagination {
+      padding: 1rem;
       display: flex;
       justify-content: center;
-      gap: 10px;
-      padding: 20px;
+      gap: 0.5rem;
+      border-top: 1px solid var(--border);
     }
 
-    .pagination button {
-      padding: 6px 14px;
-      background: var(--bg-secondary);
-      border: 1px solid var(--border);
-      color: white;
-      border-radius: 6px;
-      cursor: pointer;
+    .code-font {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--primary);
     }
 
-    .pagination button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    /* Utility Classes for JS created elements */
+    .hidden {
+      display: none !important;
     }
   </style>
 </head>
 
 <body>
 
-  <!-- 登录页 -->
-  <div class="login-container" id="loginPage">
-    <div class="login-box">
-      <h1>🔐 管理后台</h1>
+  <!-- Login Page -->
+  <div id="loginPage" class="login-container">
+    <div class="login-card">
+      <div class="login-header">
+        <h1>Admin Portal</h1>
+        <p>检查单识别助手管理后台</p>
+      </div>
       <form id="loginForm">
-        <div class="form-group">
-          <label>管理密码</label>
-          <input type="password" id="password" required>
+        <div style="margin-bottom: 1.5rem;">
+          <input type="password" id="password" placeholder="输入管理密码..." required>
         </div>
-        <button type="submit" class="btn btn-primary">登录</button>
-        <p id="loginError" style="color:var(--danger); text-align:center; margin-top:10px; display:none;"></p>
+        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">登录系统</button>
+        <p id="loginError" class="badge-danger"
+          style="margin-top: 1rem; display: none; text-align: center; border-radius: 0.5rem; padding: 0.5rem;"></p>
       </form>
     </div>
   </div>
 
-  <!-- 主界面 -->
-  <div class="dashboard" id="dashboard">
-    <div class="header">
-      <h1>管理控制台</h1>
-      <button class="btn btn-sm btn-danger" onclick="logout()">退出登录</button>
-    </div>
+  <!-- Dashboard -->
+  <div id="dashboard" class="dashboard-layout hidden">
 
-    <!-- 导航 -->
-    <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('logs')">📊 使用记录</button>
-      <button class="tab-btn" onclick="switchTab('codes')">🎟️ 兑换码管理</button>
-      <button class="tab-btn" onclick="switchTab('users')">👥 用户配额</button>
-    </div>
-
-    <!-- Tab 1: 使用记录 -->
-    <div id="tab-logs" class="tab-content active">
-      <div class="stats-grid">
-        <div class="stat-card">
-          <h3>总调用</h3>
-          <div class="value" id="statTotalCalls">-</div>
-        </div>
-        <div class="stat-card">
-          <h3>今日调用</h3>
-          <div class="value" id="statTodayCalls">-</div>
-        </div>
-        <div class="stat-card">
-          <h3>本月调用</h3>
-          <div class="value" id="statMonthCalls">-</div>
-        </div>
-        <div class="stat-card">
-          <h3>独立用户</h3>
-          <div class="value" id="statTotalUsers">-</div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-top:4px;">按ID/昵称/IP统计</div>
-        </div>
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h2>⚡ Admin</h2>
       </div>
 
-      <!-- 管理操作区域 -->
-      <div style="margin-bottom:16px;text-align:right;">
-        <button class="btn btn-sm" onclick="clearAllLogs()"
-          style="background:transparent;color:var(--danger);border:1px solid var(--danger);font-size:12px;">
-          🗑️ 清除所有记录（重新统计）
+      <nav class="sidebar-nav">
+        <button onclick="switchTab('logs')" class="nav-item active tab-btn" data-tab="logs">
+          <span>📊</span> 使用记录
+        </button>
+        <button onclick="switchTab('codes')" class="nav-item tab-btn" data-tab="codes">
+          <span>🎟️</span> 兑换码管理
+        </button>
+        <button onclick="switchTab('users')" class="nav-item tab-btn" data-tab="users">
+          <span>👥</span> 用户配额
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button onclick="logout()" class="btn btn-danger" style="width: 100%; justify-content: flex-start;">
+          <span>🚪</span> 退出登录
         </button>
       </div>
+    </aside>
 
-      <!-- 用户搜索区域 -->
-      <div class="actions-panel">
-        <div class="form-group">
-          <label>🔍 查询用户调用记录</label>
-          <input type="text" id="logUserSearch" placeholder="输入用户ID或昵称搜索..."
-            onkeydown="if(event.key==='Enter')searchUserLogs()">
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="top-bar">
+        <div class="page-title">管理控制台</div>
+        <div style="font-size: 0.875rem; color: var(--text-muted);">
+          Running on Zeabur
         </div>
-        <button class="btn btn-primary" onclick="searchUserLogs()" style="width:auto;">搜索</button>
-        <button class="btn btn-sm" onclick="clearUserSearch()"
-          style="width:auto;background:var(--bg-secondary);color:var(--text-secondary);border:1px solid var(--border);">清除</button>
-      </div>
+      </header>
 
-      <!-- 用户统计展示区域 (搜索后显示) -->
-      <div id="userStatsPanel" style="display:none;margin-bottom:24px;">
-        <div class="stats-grid">
-          <div class="stat-card"
-            style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05)); border-color: rgba(99, 102, 241, 0.3);">
-            <h3>👤 用户</h3>
-            <div class="value" id="searchUserName" style="font-size:18px;">-</div>
+      <div class="content-area">
+
+        <!-- Tab 1: Logs -->
+        <div id="tab-logs" class="tab-content active">
+
+          <div class="grid-4">
+            <div class="stat-card">
+              <div class="stat-title">总调用次数</div>
+              <div class="stat-value" id="statTotalCalls">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">今日调用</div>
+              <div class="stat-value" id="statTodayCalls">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">本月调用</div>
+              <div class="stat-value" id="statMonthCalls">-</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">独立用户</div>
+              <div class="stat-value" id="statTotalUsers">-</div>
+              <div class="stat-desc">按ID/昵称/IP统计</div>
+            </div>
           </div>
-          <div class="stat-card"
-            style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(34, 197, 94, 0.05)); border-color: rgba(34, 197, 94, 0.3);">
-            <h3>📊 累计调用</h3>
-            <div class="value" id="searchUserTotal">-</div>
+
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+            <div style="flex: 1; max-width: 500px; display: flex; gap: 0.5rem;">
+              <input type="text" id="logUserSearch" placeholder="🔍  搜索用户ID或昵称..."
+                onkeydown="if(event.key==='Enter')searchUserLogs()">
+              <button class="btn btn-primary" onclick="searchUserLogs()">搜索</button>
+              <button class="btn btn-secondary" onclick="clearUserSearch()">清除</button>
+            </div>
+            <button class="btn btn-danger" onclick="clearAllLogs()">🗑️ 清除所有数据</button>
           </div>
-          <div class="stat-card"
-            style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(245, 158, 11, 0.05)); border-color: rgba(245, 158, 11, 0.3);">
-            <h3>📅 本月调用</h3>
-            <div class="value" id="searchUserMonth">-</div>
+
+          <!-- Search Result Panel -->
+          <div id="userStatsPanel" class="hidden"
+            style="background: var(--primary-light); border: 1px solid var(--primary); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem;">
+            <h3 style="color: var(--primary); font-size: 1rem; margin-bottom: 1rem;">用户统计: <span
+                id="searchUserName">-</span></h3>
+            <div class="grid-4" style="margin-bottom: 0;">
+              <div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">累计调用</div>
+                <div style="font-size: 1.5rem; font-weight: 700;" id="searchUserTotal">-</div>
+              </div>
+              <div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">本月调用</div>
+                <div style="font-size: 1.5rem; font-weight: 700;" id="searchUserMonth">-</div>
+              </div>
+              <div>
+                <div style="font-size: 0.8rem; color: var(--text-muted);">今日调用</div>
+                <div style="font-size: 1.5rem; font-weight: 700;" id="searchUserToday">-</div>
+              </div>
+            </div>
           </div>
-          <div class="stat-card"
-            style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05)); border-color: rgba(239, 68, 68, 0.3);">
-            <h3>📆 今日调用</h3>
-            <div class="value" id="searchUserToday">-</div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3 id="logsTableTitle">实时日志</h3>
+              <button class="btn btn-sm btn-secondary" onclick="loadLogs()">🔄 刷新</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>时间</th>
+                    <th>用户 / IP</th>
+                    <th>类型</th>
+                    <th>统计</th>
+                    <th>详情</th>
+                  </tr>
+                </thead>
+                <tbody id="logsTableBody"></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="logsPagination"></div>
+          </div>
+
+        </div>
+
+        <!-- Tab 2: Codes -->
+        <div id="tab-codes" class="tab-content">
+          <div class="action-panel">
+            <div style="flex:1;">
+              <h3 class="panel-title">生成普通兑换码</h3>
+              <div style="display:flex; gap: 1rem; align-items: flex-end;">
+                <div class="form-group">
+                  <label>额度次数</label>
+                  <input type="number" id="codeAmount" value="20">
+                </div>
+                <div class="form-group">
+                  <label>生成数量</label>
+                  <input type="number" id="codeCount" value="1" max="50">
+                </div>
+                <button class="btn btn-primary" onclick="generateCodes()">✨ 生成</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="action-panel" style="background: linear-gradient(to right, #ecfdf5, white);">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: var(--success);">生成无限畅享码</h3>
+              <div style="display:flex; gap: 1rem; align-items: flex-end;">
+                <div class="form-group">
+                  <label>数量</label>
+                  <input type="number" id="unlimitedCodeCount" value="1" max="10">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                  <label>备注 (可选)</label>
+                  <input type="text" id="unlimitedCodeRemark" placeholder="如：Gift for Alex">
+                </div>
+                <button class="btn btn-success" onclick="generateUnlimitedCodes()">💎 生成无限码</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-card">
+            <div class="table-header">
+              <h3>有效兑换码列表</h3>
+              <button class="btn btn-sm btn-secondary" onclick="loadCodes()">🔄 刷新</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>兑换码</th>
+                    <th>额度</th>
+                    <th>备注</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="codesTableBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
 
-      <div class="table-container">
-        <div class="table-header">
-          <h2 id="logsTableTitle">实时日志</h2>
-          <button class="btn btn-sm btn-success" onclick="loadLogs()">刷新</button>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>时间</th>
-                <th>用户/IP</th>
-                <th>类型</th>
-                <th>统计</th>
-                <th>详情</th>
-              </tr>
-            </thead>
-            <tbody id="logsTableBody"></tbody>
-          </table>
-        </div>
-        <div class="pagination" id="logsPagination"></div>
-      </div>
-    </div>
+        <!-- Tab 3: Users -->
+        <div id="tab-users" class="tab-content">
+          <div class="grid-4">
+            <div class="stat-card interactive" onclick="filterByType('unlimited')" id="card-unlimited">
+              <div class="stat-title">💎 无限畅享用户</div>
+              <div class="stat-value" id="statUnlimitedUsers">-</div>
+            </div>
+            <div class="stat-card interactive" onclick="filterByType('pro')" id="card-pro">
+              <div class="stat-title">⭐ Pro 用户</div>
+              <div class="stat-value" id="statProUsers">-</div>
+            </div>
+            <div class="stat-card interactive" onclick="filterByType('normal')" id="card-normal">
+              <div class="stat-title">👤 普通用户</div>
+              <div class="stat-value" id="statNormalUsers">-</div>
+            </div>
+            <div class="stat-card interactive" onclick="filterByType('all')" id="card-all">
+              <div class="stat-title">📊 全部用户</div>
+              <div class="stat-value" id="statAllUsers">-</div>
+            </div>
+          </div>
 
-    <!-- Tab 2: 兑换码管理 -->
-    <div id="tab-codes" class="tab-content">
-      <div class="actions-panel">
-        <div class="form-group">
-          <label>额度 (次数)</label>
-          <input type="number" id="codeAmount" value="20" min="1">
-        </div>
-        <div class="form-group">
-          <label>生成数量</label>
-          <input type="number" id="codeCount" value="1" min="1" max="50">
-        </div>
-        <button class="btn btn-primary" onclick="generateCodes()" style="width: auto;">✨ 生成兑换码</button>
-      </div>
+          <div class="action-panel">
+            <div class="form-group" style="flex: 2;">
+              <label>查找用户</label>
+              <input type="text" id="userSearch" placeholder="输入 ID 或昵称进行过滤..." oninput="filterUsers()">
+            </div>
+            <div
+              style="flex: 1; text-align: right; padding-bottom: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
+              <span id="currentFilter">显示: 全部用户</span>
+            </div>
+          </div>
 
-      <div class="actions-panel"
-        style="background: linear-gradient(135deg, rgba(34, 197, 94, 0.1), rgba(34, 197, 94, 0.05)); border-color: rgba(34, 197, 94, 0.3);">
-        <div class="form-group">
-          <label>无限畅享码数量</label>
-          <input type="number" id="unlimitedCodeCount" value="1" min="1" max="10">
+          <div class="table-card">
+            <div class="table-header">
+              <h3>用户配额状态</h3>
+              <button class="btn btn-sm btn-secondary" onclick="loadUsers()">🔄 刷新</button>
+            </div>
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>用户ID</th>
+                    <th>昵称</th>
+                    <th>本周已用</th>
+                    <th>额外额度</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                  </tr>
+                </thead>
+                <tbody id="usersTableBody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
-        <div class="form-group">
-          <label>备注信息 (可选)</label>
-          <input type="text" id="unlimitedCodeRemark" placeholder="例如：送给张三">
-        </div>
-        <button class="btn btn-success" onclick="generateUnlimitedCodes()" style="width: auto;">💎 生成无限畅享码</button>
-      </div>
 
-      <div class="table-container">
-        <div class="table-header">
-          <h2>有效兑换码列表</h2>
-          <button class="btn btn-sm btn-success" onclick="loadCodes()">刷新列表</button>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>兑换码</th>
-                <th>额度</th>
-                <th>备注</th>
-                <th>创建时间</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="codesTableBody"></tbody>
-          </table>
-        </div>
       </div>
-    </div>
-
-    <!-- Tab 3: 用户配额 -->
-    <div id="tab-users" class="tab-content">
-      <!-- 用户统计卡片 -->
-      <div class="stats-grid" style="margin-bottom: 20px;">
-        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;"
-          onclick="filterByType('unlimited')" id="card-unlimited">
-          <h3>💎 无限畅享</h3>
-          <div class="value" id="statUnlimitedUsers">-</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">点击筛选</div>
-        </div>
-        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;" onclick="filterByType('pro')"
-          id="card-pro">
-          <h3>⭐ Pro 用户</h3>
-          <div class="value" id="statProUsers">-</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">有额外额度</div>
-        </div>
-        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;" onclick="filterByType('normal')"
-          id="card-normal">
-          <h3>👤 普通用户</h3>
-          <div class="value" id="statNormalUsers">-</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">仅周免费额度</div>
-        </div>
-        <div class="stat-card" style="cursor:pointer; border: 2px solid transparent;" onclick="filterByType('all')"
-          id="card-all">
-          <h3>📊 全部用户</h3>
-          <div class="value" id="statAllUsers">-</div>
-          <div style="font-size:12px;color:var(--text-secondary);margin-top:4px;">点击显示全部</div>
-        </div>
-      </div>
-
-      <div class="actions-panel">
-        <div class="form-group">
-          <label>查找用户 (ID/昵称)</label>
-          <input type="text" id="userSearch" placeholder="输入 ID 或昵称进行过滤..." oninput="filterUsers()">
-        </div>
-        <div style="display:flex;gap:8px;align-items:flex-end;">
-          <span id="currentFilter" style="font-size:13px;color:var(--text-secondary);padding:8px 0;">当前显示: 全部用户</span>
-        </div>
-      </div>
-
-      <div class="table-container">
-        <div class="table-header">
-          <h2>用户配额状态</h2>
-          <button class="btn btn-sm btn-success" onclick="loadUsers()">刷新列表</button>
-        </div>
-        <div class="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>用户ID</th>
-                <th>昵称</th>
-                <th>本周已用</th>
-                <th>额外额度</th>
-                <th>状态</th>
-                <th>操作</th>
-              </tr>
-            </thead>
-            <tbody id="usersTableBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
+    </main>
   </div>
 
   <script>
@@ -613,21 +721,28 @@
       loadAllData();
     }
 
+    // Tab Switching logic
     function switchTab(tabId) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
       document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-      document.getElementById('tab-' + tabId).classList.add('active');
-      document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+      const tabEl = document.getElementById('tab-' + tabId);
+      if (tabEl) tabEl.classList.add('active');
+
+      // Update sidebar state
+      const btn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
+      if (btn) btn.classList.add('active');
     }
 
     function showDashboard() {
       document.getElementById('loginPage').style.display = 'none';
-      document.getElementById('dashboard').classList.add('active');
+      const db = document.getElementById('dashboard');
+      db.classList.remove('hidden');
     }
 
     async function loadAllData() {
       loadLogs();
-      loadStats(); // Reusing the endpoints from previous server.mjs
+      loadStats();
       loadCodes();
       loadUsers();
     }
@@ -649,10 +764,12 @@
           showDashboard();
           loadAllData();
         } else {
-          document.getElementById('loginError').textContent = data.message;
-          document.getElementById('loginError').style.display = 'block';
+          const errEl = document.getElementById('loginError');
+          errEl.textContent = data.message;
+          errEl.style.display = 'block';
         }
       } catch (err) {
+        console.error(err);
         alert('登录出错');
       }
     });
@@ -663,7 +780,7 @@
     }
 
     /* --- Logs --- */
-    let currentLogSearch = ''; // 当前搜索的用户
+    let currentLogSearch = '';
 
     async function loadLogs(page = 1, searchUser = '') {
       logsPage = page;
@@ -681,10 +798,9 @@
       if (data.success) {
         const tbody = document.getElementById('logsTableBody');
 
-        // 更新表格标题
         const tableTitle = document.getElementById('logsTableTitle');
         if (searchUser && data.data.pagination.total > 0) {
-          tableTitle.textContent = `"${searchUser}" 的调用记录 (共 ${data.data.pagination.total} 条)`;
+          tableTitle.textContent = `"${searchUser}" 的记录 (${data.data.pagination.total} 条)`;
         } else if (searchUser) {
           tableTitle.textContent = `未找到 "${searchUser}" 的记录`;
         } else {
@@ -692,16 +808,14 @@
         }
 
         if (data.data.logs.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无记录</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">暂无记录</td></tr>';
         } else {
           tbody.innerHTML = data.data.logs.map(log => {
-            // 获取 IP 位置信息
             const ipLocation = log.ipLocation ? log.ipLocation.location : log.ip;
             const locationDetail = log.ipLocation
               ? [log.ipLocation.province, log.ipLocation.city, log.ipLocation.district].filter(Boolean).join(' ')
               : '';
 
-            // 获取用户显示名称：优先显示非"匿名"的昵称，否则显示userId，最后显示IP
             const getUserDisplayName = (log) => {
               if (log.nickname && log.nickname !== '匿名') return log.nickname;
               if (log.userId) return log.userId;
@@ -710,32 +824,34 @@
 
             return `
             <tr>
-              <td>${new Date(log.timestamp).toLocaleString()}</td>
               <td>
-                <div style="font-weight:600;color:var(--text-primary)">${getUserDisplayName(log)}</div>
-                <div style="font-size:12px;color:var(--text-secondary)">${log.ip}</div>
+                <div style="font-weight:500;">${new Date(log.timestamp).toLocaleDateString()}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">${new Date(log.timestamp).toLocaleTimeString()}</div>
               </td>
-              <td><span class="badge badge-accent">${log.apiType}</span></td>
-              <td>第 ${log.cumulativeCount} 次</td>
-              <td style="font-size:12px;color:var(--text-secondary)">
-                <div>📍 ${locationDetail || log.ip}</div>
+              <td>
+                <div style="font-weight:600;color:var(--primary);">${getUserDisplayName(log)}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted);">${log.ip}</div>
+              </td>
+              <td><span class="badge badge-primary">${log.apiType}</span></td>
+              <td>${log.cumulativeCount} 次</td>
+              <td style="font-size:0.75rem;color:var(--text-muted);">
+                ${locationDetail || log.ip}
               </td>
             </tr>
           `}).join('');
         }
 
-        // 分页（带搜索参数）
+        // Pagination
         const totalPages = data.data.pagination.totalPages || 1;
         const pageContainer = document.getElementById('logsPagination');
         pageContainer.innerHTML = `
-          <button ${page <= 1 ? 'disabled' : ''} onclick="loadLogs(${page - 1}, '${currentLogSearch}')">上一页</button>
-          <span style="color:var(--text-secondary);font-size:14px"> ${page} / ${totalPages} </span>
-          <button ${page >= totalPages ? 'disabled' : ''} onclick="loadLogs(${page + 1}, '${currentLogSearch}')">下一页</button>
+          <button class="btn btn-sm btn-secondary" ${page <= 1 ? 'disabled' : ''} onclick="loadLogs(${page - 1}, '${currentLogSearch}')">上一页</button>
+          <span style="color:var(--text-muted);font-size:0.875rem;align-self:center;"> ${page} / ${totalPages} </span>
+          <button class="btn btn-sm btn-secondary" ${page >= totalPages ? 'disabled' : ''} onclick="loadLogs(${page + 1}, '${currentLogSearch}')">下一页</button>
         `;
       }
     }
 
-    // 搜索用户日志
     async function searchUserLogs() {
       const searchInput = document.getElementById('logUserSearch').value.trim();
       if (!searchInput) {
@@ -743,10 +859,8 @@
         return;
       }
 
-      // 显示用户统计面板
-      document.getElementById('userStatsPanel').style.display = 'block';
+      document.getElementById('userStatsPanel').classList.remove('hidden');
 
-      // 查询用户统计
       try {
         const res = await fetch(`/api/admin/user-stats/${encodeURIComponent(searchInput)}`, {
           headers: { 'Authorization': `Bearer ${authToken}` }
@@ -768,25 +882,20 @@
         console.error('查询用户统计失败:', err);
       }
 
-      // 加载该用户的日志
       loadLogs(1, searchInput);
     }
 
-    // 清除搜索
     function clearUserSearch() {
       document.getElementById('logUserSearch').value = '';
-      document.getElementById('userStatsPanel').style.display = 'none';
+      document.getElementById('userStatsPanel').classList.add('hidden');
       currentLogSearch = '';
       loadLogs(1);
     }
 
-    // 清除所有使用记录
     async function clearAllLogs() {
       if (!confirm('⚠️ 确定要清除所有使用记录吗？\n\n这将：\n• 删除所有调用日志\n• 重置用户统计\n• 无法恢复！\n\n请确认操作。')) {
         return;
       }
-
-      // 二次确认
       if (!confirm('🔴 最后确认：真的要清除所有数据吗？')) {
         return;
       }
@@ -835,37 +944,39 @@
           const codes = Object.entries(data.data || {});
           const tbody = document.getElementById('codesTableBody');
           if (codes.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-secondary)">暂无未使用的兑换码</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:2rem;">暂无未使用的兑换码</td></tr>';
             return;
           }
           tbody.innerHTML = codes.map(([code, info]) => {
             const isUnlimited = info.type === 'unlimited' || info.quota === -1;
             const quotaDisplay = isUnlimited
-              ? '<span class="badge badge-success">💎 无限畅享</span>'
+              ? '<span class="badge badge-success">无限制</span>'
               : `<span class="badge badge-warning">${info.quota} 次</span>`;
-            const remarkDisplay = info.remark || '<span style="color:var(--text-secondary)">无</span>';
+            const remarkDisplay = info.remark || '<span style="color:var(--text-muted)">-</span>';
             return `
             <tr>
-              <td><span class="code-text">${code}</span></td>
+              <td><span class="code-font">${code}</span></td>
               <td>${quotaDisplay}</td>
               <td>
-                <span id="remark-${code}">${remarkDisplay}</span>
-                <button class="copy-btn" onclick="editCodeRemark('${code}')" style="margin-left:4px;">编辑</button>
+                <div style="display:flex;align-items:center;">
+                    <span id="remark-${code}" style="margin-right:0.5rem;">${remarkDisplay}</span>
+                    <button class="btn btn-sm btn-secondary" onclick="editCodeRemark('${code}')" style="padding: 2px 6px; font-size: 10px;">✎</button>
+                </div>
               </td>
               <td>${new Date(info.createTime).toLocaleDateString()}</td>
               <td>
-                <button class="copy-btn" onclick="navigator.clipboard.writeText('${code}')">复制</button>
-                <button class="copy-btn" onclick="deleteCode('${code}')" style="margin-left:4px;color:var(--danger);">删除</button>
+                <div style="display:flex;gap:0.25rem;">
+                    <button class="btn btn-sm btn-secondary" onclick="navigator.clipboard.writeText('${code}')">复制</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCode('${code}')">删除</button>
+                </div>
               </td>
             </tr>
           `}).join('');
         } else {
-          console.error('加载兑换码失败:', data.message);
-          document.getElementById('codesTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger)">加载失败: ' + (data.message || '未知错误') + '</td></tr>';
+          document.getElementById('codesTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger)">加载失败</td></tr>';
         }
       } catch (err) {
-        console.error('加载兑换码失败:', err);
-        document.getElementById('codesTableBody').innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--danger)">加载失败: ' + err.message + '</td></tr>';
+        console.error(err);
       }
     }
 
@@ -891,7 +1002,6 @@
           alert('生成失败: ' + (data.message || '未知错误'));
         }
       } catch (err) {
-        console.error('生成兑换码失败:', err);
         alert('生成兑换码失败: ' + err.message);
       }
     }
@@ -913,18 +1023,16 @@
         const data = await res.json();
         if (data.success) {
           alert(`🎉 成功生成 ${data.data.codes.length} 个无限畅享兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
-          document.getElementById('unlimitedCodeRemark').value = ''; // 清空备注输入框
+          document.getElementById('unlimitedCodeRemark').value = '';
           loadCodes();
         } else {
           alert('生成失败: ' + (data.message || '未知错误'));
         }
       } catch (err) {
-        console.error('生成无限畅享码失败:', err);
-        alert('生成无限畅享码失败: ' + err.message);
+        alert('生成失败: ' + err.message);
       }
     }
 
-    // 删除兑换码
     async function deleteCode(code) {
       if (!confirm(`确定要删除兑换码 ${code} 吗？`)) return;
 
@@ -935,19 +1043,17 @@
 
       const data = await res.json();
       if (data.success) {
-        alert('兑换码已删除');
         loadCodes();
       } else {
         alert('删除失败: ' + data.message);
       }
     }
 
-    // 编辑兑换码备注
     async function editCodeRemark(code) {
       const currentRemark = document.getElementById(`remark-${code}`)?.textContent || '';
-      const newRemark = prompt('请输入新的备注信息:', currentRemark === '无' ? '' : currentRemark);
+      const newRemark = prompt('请输入新的备注信息:', currentRemark === '-' ? '' : currentRemark);
 
-      if (newRemark === null) return; // 用户取消
+      if (newRemark === null) return;
 
       const res = await fetch(`/api/admin/codes/${encodeURIComponent(code)}/remark`, {
         method: 'PUT',
@@ -958,17 +1064,16 @@
         body: JSON.stringify({ remark: newRemark })
       });
 
-      const data = await res.json();
-      if (data.success) {
+      if (res.ok) {
         loadCodes();
       } else {
-        alert('更新失败: ' + data.message);
+        alert('更新失败');
       }
     }
 
     /* --- Users --- */
     let allUsers = [];
-    let currentUserFilter = 'all'; // 当前筛选类型
+    let currentUserFilter = 'all';
 
     async function loadUsers() {
       const res = await fetch('/api/admin/quota/users', {
@@ -978,11 +1083,10 @@
       if (data.success) {
         allUsers = data.data;
         updateUserStats();
-        filterByType(currentUserFilter); // 保持当前筛选状态
+        filterByType(currentUserFilter);
       }
     }
 
-    // 更新用户统计数字
     function updateUserStats() {
       const unlimited = allUsers.filter(u => u.isUnlimited);
       const pro = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
@@ -994,18 +1098,24 @@
       document.getElementById('statAllUsers').textContent = allUsers.length;
     }
 
-    // 按类型筛选用户
     function filterByType(type) {
       currentUserFilter = type;
       let filtered = [];
       let filterLabel = '';
 
-      // 更新卡片高亮
       ['unlimited', 'pro', 'normal', 'all'].forEach(t => {
         const card = document.getElementById('card-' + t);
         if (card) {
-          card.style.borderColor = (t === type) ? 'var(--accent)' : 'transparent';
-          card.style.boxShadow = (t === type) ? '0 0 20px var(--accent-glow)' : 'none';
+          // Remove custom style manip from JS, rely on classes if possible, 
+          // but preserving original logic structure for safety.
+          // Refactored to simpler style toggle
+          if (t === type) {
+            card.style.borderColor = 'var(--primary)';
+            card.style.backgroundColor = 'var(--primary-light)';
+          } else {
+            card.style.borderColor = 'var(--border)';
+            card.style.backgroundColor = 'white';
+          }
         }
       });
 
@@ -1016,7 +1126,7 @@
           break;
         case 'pro':
           filtered = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
-          filterLabel = '⭐ Pro 用户（有额外额度）';
+          filterLabel = '⭐ Pro 用户';
           break;
         case 'normal':
           filtered = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
@@ -1027,44 +1137,46 @@
           filterLabel = '📊 全部用户';
       }
 
-      document.getElementById('currentFilter').textContent = '当前显示: ' + filterLabel + ' (' + filtered.length + '人)';
-      document.getElementById('userSearch').value = ''; // 清空搜索框
+      const fLabel = document.getElementById('currentFilter');
+      if (fLabel) fLabel.textContent = '当前显示: ' + filterLabel + ' (' + filtered.length + '人)';
+
+      const uSearch = document.getElementById('userSearch');
+      if (uSearch) uSearch.value = '';
+
       renderUsers(filtered);
     }
 
     function renderUsers(users) {
       const tbody = document.getElementById('usersTableBody');
       if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-secondary)">没有用户配额数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">没有用户数据</td></tr>';
         return;
       }
       tbody.innerHTML = users.map(user => {
-        // 判断用户类型并显示对应标签
         let statusBadge = '';
         if (user.isUnlimited) {
-          statusBadge = '<span class="badge badge-success">💎 无限畅享</span>';
+          statusBadge = '<span class="badge badge-success">Unlimited</span>';
         } else if ((user.extraQuota || 0) > 0) {
-          statusBadge = '<span class="badge badge-accent">⭐ Pro</span>';
+          statusBadge = '<span class="badge badge-primary">Pro</span>';
         } else {
-          statusBadge = '<span class="badge badge-warning">普通用户</span>';
+          statusBadge = '<span class="badge badge-warning">Basic</span>';
         }
 
         return `
         <tr>
-          <td style="font-family:monospace;font-size:12px;">${user.id}</td>
-          <td>${user.nickname || '未命名'}</td>
+          <td style="font-family:monospace;font-size:0.75rem;">${user.id}</td>
+          <td style="font-weight:500;">${user.nickname || '未命名'}</td>
           <td>${user.weeklyUsage || 0} / 5</td>
-          <td>${user.extraQuota || 0}</td>
+          <td><span style="font-weight:600;color:${(user.extraQuota || 0) > 0 ? 'var(--primary)' : 'inherit'}">${user.extraQuota || 0}</span></td>
           <td>${statusBadge}</td>
           <td>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn btn-sm btn-primary" style="font-size:12px;padding:6px 10px;"
-                onclick="addUserQuota('${user.id}')">
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+              <button class="btn btn-sm btn-secondary" onclick="addUserQuota('${user.id}')">
                 +额度
               </button>
-              <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger' : 'btn-success'}" style="font-size:12px;padding:6px 10px;"
+              <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger-solid' : 'btn-success'}" 
                 onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})">
-                ${user.isUnlimited ? '取消无限' : '设为无限'}
+                ${user.isUnlimited ? 'Stop' : 'Ultra'}
               </button>
             </div>
           </td>
@@ -1075,11 +1187,9 @@
     function filterUsers() {
       const q = document.getElementById('userSearch').value.toLowerCase();
       if (!q) {
-        // 如果搜索框为空，恢复到当前筛选状态
         filterByType(currentUserFilter);
         return;
       }
-      // 在当前筛选结果中搜索
       let baseList = allUsers;
       switch (currentUserFilter) {
         case 'unlimited':
@@ -1099,11 +1209,9 @@
       renderUsers(filtered);
     }
 
-    // 给用户增加额度
     async function addUserQuota(userId) {
       const amount = prompt('请输入要增加的额度次数:', '10');
-      if (amount === null) return; // 用户取消
-
+      if (amount === null) return;
       const addAmount = parseInt(amount);
       if (isNaN(addAmount) || addAmount <= 0) {
         alert('请输入有效的正整数');
@@ -1119,16 +1227,14 @@
           },
           body: JSON.stringify({ userId, amount: addAmount })
         });
-
         const data = await res.json();
         if (data.success) {
-          alert(`✅ ${data.message}\n\n用户当前额外额度: ${data.data.newExtraQuota} 次`);
+          alert(`✅ ${data.message}\n\n该用户的额外额度变为: ${data.data.newExtraQuota}`);
           loadUsers();
         } else {
           alert('操作失败: ' + (data.message || '未知错误'));
         }
       } catch (err) {
-        console.error('增加额度失败:', err);
         alert('增加额度失败: ' + err.message);
       }
     }
