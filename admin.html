@@ -833,7 +833,10 @@
                 <div style="font-size:0.75rem;color:var(--text-muted);">${log.ip}</div>
               </td>
               <td><span class="badge badge-primary">${log.apiType}</span></td>
-              <td>${log.cumulativeCount} 次</td>
+              <td>
+                <div style="font-weight:600;">${log.userTotalCalls || log.cumulativeCount} 次</div>
+                <div style="font-size:0.7rem;color:var(--text-muted);">本月 ${log.userMonthCalls || '-'}</div>
+              </td>
               <td style="font-size:0.75rem;color:var(--text-muted);">
                 ${locationDetail || log.ip}
               </td>

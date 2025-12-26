@@ -48,15 +48,26 @@ let lastRequestTime = Date.now();
 let usageLogs = [];
 let userStats = new Map(); // 用户累计次数统计
 let usageLogsInitialized = false; // 标记是否已初始化
+let initUsageLogsPromise = null; // 初始化锁，防止并发重复初始化
 
 // Redis 使用记录相关常量
 const USAGE_LOGS_REDIS_KEY = 'usage:logs';
 const USAGE_STATS_REDIS_KEY = 'usage:stats';
 const MAX_USAGE_LOGS = 500; // Redis 中最多保存 500 条日志
 
-// 从 Redis 或本地文件加载使用记录（异步初始化）
+// 从 Redis 或本地文件加载使用记录（异步初始化，带锁防止并发）
 const initUsageLogs = async () => {
   if (usageLogsInitialized) return;
+
+  // 如果已有初始化任务在执行，等待它完成
+  if (initUsageLogsPromise) return initUsageLogsPromise;
+
+  initUsageLogsPromise = _doInitUsageLogs();
+  return initUsageLogsPromise;
+};
+
+// 实际的初始化逻辑
+const _doInitUsageLogs = async () => {
 
   // 先检查 Redis 配置是否可用（需要等待 Redis 配置加载）
   const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || "";
@@ -117,6 +128,7 @@ const initUsageLogs = async () => {
   }
 
   usageLogsInitialized = true;
+  initUsageLogsPromise = null; // 清除锁
 };
 
 // 保存使用记录到 Redis（优先）和本地文件（备份）
@@ -244,6 +256,24 @@ const logUserUsage = async (req, apiType, extra = {}) => {
   const count = (userStats.get(userKey) || 0) + 1;
   userStats.set(userKey, count);
 
+  // 计算该用户的历史总次数和本月次数
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+
+  let userTotalCalls = 0;
+  let userMonthCalls = 0;
+  usageLogs.forEach(log => {
+    const logUserKey = log.nickname || log.userId || log.ip;
+    if (logUserKey === userKey) {
+      userTotalCalls++;
+      const logTime = new Date(log.timestamp).getTime();
+      if (logTime >= monthStart) userMonthCalls++;
+    }
+  });
+  // 加上当前这一次
+  userTotalCalls++;
+  userMonthCalls++;
+
   const logEntry = {
     id: Date.now().toString(36) + Math.random().toString(36).substr(2, 5),
     timestamp: new Date().toISOString(),
@@ -253,6 +283,8 @@ const logUserUsage = async (req, apiType, extra = {}) => {
     ipLocation: locationInfo,
     apiType: apiType,
     cumulativeCount: count,
+    userTotalCalls: userTotalCalls,   // 用户历史总次数
+    userMonthCalls: userMonthCalls,   // 用户本月次数
     ...extra
   };
 
@@ -530,8 +562,8 @@ const incrementApiStats = async (type) => {
   }
   apiCallStats.totalCalls++;
 
-  // 异步保存到 Redis（不阻塞主流程）
-  setImmediate(() => saveApiStats());
+  // 异步保存到 Redis（不阻塞主流程，带错误处理）
+  saveApiStats().catch(err => console.error('[Stats] Failed to save:', err.message));
 };
 
 // 初始化时加载统计数据
@@ -824,70 +856,6 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: "10mb" }));
-
-// ===========================================
-// 健康检查与状态监控端点
-// ===========================================
-app.get("/api/health", (req, res) => {
-  // 更新最后请求时间
-  lastRequestTime = Date.now();
-
-  const memUsage = process.memoryUsage();
-  const uptimeSeconds = Math.floor((Date.now() - apiCallStats.startTime) / 1000);
-  const idleSeconds = Math.floor((Date.now() - lastRequestTime) / 1000);
-
-  res.json({
-    status: "ok",
-    timestamp: new Date().toISOString(),
-    uptime: {
-      seconds: uptimeSeconds,
-      display: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m`
-    },
-    memory: {
-      heapUsed: `${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`,
-      heapTotal: `${Math.round(memUsage.heapTotal / 1024 / 1024)}MB`,
-      rss: `${Math.round(memUsage.rss / 1024 / 1024)}MB`,
-      external: `${Math.round(memUsage.external / 1024 / 1024)}MB`
-    },
-    caches: {
-      clientCache: clientCache.size,
-      ipLocationCache: ipLocationCache.size,
-      usageLogs: usageLogs.length,
-      sdkLoaded: GoogleGenAI !== null
-    },
-    stats: {
-      totalCalls: apiCallStats.totalCalls,
-      imageAnalyze: apiCallStats.imageAnalyze,
-      imageBase64: apiCallStats.imageBase64Analyze,
-      excelAnalyze: apiCallStats.excelAnalyze
-    },
-    idleSeconds: idleSeconds
-  });
-});
-
-// ===========================================
-// API 统计端点（供网页前端使用）
-// ===========================================
-app.get("/api/stats", (req, res) => {
-  lastRequestTime = Date.now();
-
-  const uptimeSeconds = Math.floor((Date.now() - apiCallStats.startTime) / 1000);
-
-  res.json({
-    success: true,
-    stats: {
-      imageAnalyze: apiCallStats.imageAnalyze,
-      imageBase64Analyze: apiCallStats.imageBase64Analyze,
-      excelAnalyze: apiCallStats.excelAnalyze,
-      totalCalls: apiCallStats.totalCalls,
-      uptime: {
-        hours: Math.floor(uptimeSeconds / 3600),
-        minutes: Math.floor((uptimeSeconds % 3600) / 60),
-        display: `${Math.floor(uptimeSeconds / 3600)}h ${Math.floor((uptimeSeconds % 3600) / 60)}m`
-      }
-    }
-  });
-});
 
 // ===========================================
 // API 端点：图片识别 - 用于网页端（支持 multipart/form-data）
