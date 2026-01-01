@@ -630,6 +630,25 @@
             </div>
           </div>
 
+          <div class="action-panel" style="background: linear-gradient(to right, #fef3c7, white);">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: #d97706;">生成Pro用户兑换码</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Pro用户每周可用10次（普通用户5次）</p>
+              <div style="display:flex; gap: 1rem; align-items: flex-end;">
+                <div class="form-group">
+                  <label>数量</label>
+                  <input type="number" id="proCodeCount" value="1" max="10">
+                </div>
+                <div class="form-group" style="flex: 2;">
+                  <label>备注 (可选)</label>
+                  <input type="text" id="proCodeRemark" placeholder="如：Pro upgrade for user">
+                </div>
+                <button class="btn" style="background: #f59e0b; color: white;" onclick="generateProCodes()">⭐
+                  生成Pro码</button>
+              </div>
+            </div>
+          </div>
+
           <div class="table-card">
             <div class="table-header">
               <h3>有效兑换码列表</h3>
@@ -673,6 +692,32 @@
             </div>
           </div>
 
+          <!-- 全局配额配置面板 -->
+          <div class="action-panel" style="background: linear-gradient(to right, #dbeafe, white); margin-bottom: 1rem;">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: #2563eb;">⚙️ 全局配额配置</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">调整所有用户的每周额度限制（0-100次）</p>
+              <div style="display:flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap;">
+                <div class="form-group">
+                  <label>👤 普通用户每周</label>
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <input type="number" id="normalWeeklyLimit" value="5" min="0" max="100" style="width:80px;">
+                    <span style="color:var(--text-muted);">次</span>
+                  </div>
+                </div>
+                <div class="form-group">
+                  <label>⭐ Pro用户每周</label>
+                  <div style="display:flex;align-items:center;gap:0.5rem;">
+                    <input type="number" id="proWeeklyLimit" value="10" min="0" max="100" style="width:80px;">
+                    <span style="color:var(--text-muted);">次</span>
+                  </div>
+                </div>
+                <button class="btn btn-primary" onclick="updateQuotaConfig()">💾 保存配置</button>
+                <span id="configStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
           <div class="action-panel">
             <div class="form-group" style="flex: 2;">
               <label>查找用户</label>
@@ -697,6 +742,8 @@
                     <th>昵称</th>
                     <th>本周已用</th>
                     <th>额外额度</th>
+                    <th>累计使用</th>
+                    <th>备注</th>
                     <th>状态</th>
                     <th>操作</th>
                   </tr>
@@ -952,9 +999,15 @@
           }
           tbody.innerHTML = codes.map(([code, info]) => {
             const isUnlimited = info.type === 'unlimited' || info.quota === -1;
-            const quotaDisplay = isUnlimited
-              ? '<span class="badge badge-success">无限制</span>'
-              : `<span class="badge badge-warning">${info.quota} 次</span>`;
+            const isPro = info.type === 'pro';
+            let quotaDisplay = '';
+            if (isUnlimited) {
+              quotaDisplay = '<span class="badge badge-success">无限畅享</span>';
+            } else if (isPro) {
+              quotaDisplay = '<span class="badge badge-primary">Pro (每周10次)</span>';
+            } else {
+              quotaDisplay = `<span class="badge badge-warning">${info.quota} 次额外额度</span>`;
+            }
             const remarkDisplay = info.remark || '<span style="color:var(--text-muted)">-</span>';
             return `
             <tr>
@@ -1036,6 +1089,33 @@
       }
     }
 
+    async function generateProCodes() {
+      const count = document.getElementById('proCodeCount').value;
+      const remark = document.getElementById('proCodeRemark').value;
+
+      try {
+        const res = await fetch('/api/admin/codes/generate-pro', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ count, remark })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          alert(`⭐ 成功生成 ${data.data.codes.length} 个Pro用户兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
+          document.getElementById('proCodeRemark').value = '';
+          loadCodes();
+        } else {
+          alert('生成失败: ' + (data.message || '未知错误'));
+        }
+      } catch (err) {
+        alert('生成失败: ' + err.message);
+      }
+    }
+
     async function deleteCode(code) {
       if (!confirm(`确定要删除兑换码 ${code} 吗？`)) return;
 
@@ -1077,6 +1157,7 @@
     /* --- Users --- */
     let allUsers = [];
     let currentUserFilter = 'all';
+    let quotaConfig = { normalWeeklyLimit: 5, proWeeklyLimit: 10 };
 
     async function loadUsers() {
       const res = await fetch('/api/admin/quota/users', {
@@ -1085,15 +1166,62 @@
       const data = await res.json();
       if (data.success) {
         allUsers = data.data;
+        // 更新配额配置
+        if (data.config) {
+          quotaConfig = data.config;
+          document.getElementById('normalWeeklyLimit').value = quotaConfig.normalWeeklyLimit;
+          document.getElementById('proWeeklyLimit').value = quotaConfig.proWeeklyLimit;
+        }
         updateUserStats();
         filterByType(currentUserFilter);
       }
     }
 
+    async function updateQuotaConfig() {
+      const normalLimit = document.getElementById('normalWeeklyLimit').value;
+      const proLimit = document.getElementById('proWeeklyLimit').value;
+      const statusEl = document.getElementById('configStatus');
+
+      try {
+        const res = await fetch('/api/admin/quota/config', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            normalWeeklyLimit: normalLimit,
+            proWeeklyLimit: proLimit
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          statusEl.textContent = '✅ 已保存';
+          statusEl.style.color = '#059669';
+          // 刷新用户列表以显示新的限额
+          loadUsers();
+          // 3秒后清除状态
+          setTimeout(() => {
+            statusEl.textContent = '';
+          }, 3000);
+        } else {
+          statusEl.textContent = '❌ ' + (data.message || '保存失败');
+          statusEl.style.color = '#dc2626';
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ 保存失败: ' + err.message;
+        statusEl.style.color = '#dc2626';
+      }
+    }
+
+
     function updateUserStats() {
       const unlimited = allUsers.filter(u => u.isUnlimited);
-      const pro = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
-      const normal = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
+      // Pro用户：通过isPro字段判断（通过兑换码获得，每周10次额度）
+      const pro = allUsers.filter(u => !u.isUnlimited && u.isPro);
+      // 普通用户：非无限、非Pro
+      const normal = allUsers.filter(u => !u.isUnlimited && !u.isPro);
 
       document.getElementById('statUnlimitedUsers').textContent = unlimited.length;
       document.getElementById('statProUsers').textContent = pro.length;
@@ -1128,11 +1256,13 @@
           filterLabel = '💎 无限畅享用户';
           break;
         case 'pro':
-          filtered = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
+          // Pro用户：通过isPro字段判断
+          filtered = allUsers.filter(u => !u.isUnlimited && u.isPro);
           filterLabel = '⭐ Pro 用户';
           break;
         case 'normal':
-          filtered = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
+          // 普通用户：非无限、非Pro
+          filtered = allUsers.filter(u => !u.isUnlimited && !u.isPro);
           filterLabel = '👤 普通用户';
           break;
         default:
@@ -1152,25 +1282,39 @@
     function renderUsers(users) {
       const tbody = document.getElementById('usersTableBody');
       if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:2rem;">没有用户数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">没有用户数据</td></tr>';
         return;
       }
       tbody.innerHTML = users.map(user => {
+        // 状态标签逻辑：Unlimited > Pro > Basic
         let statusBadge = '';
         if (user.isUnlimited) {
           statusBadge = '<span class="badge badge-success">Unlimited</span>';
-        } else if ((user.extraQuota || 0) > 0) {
+        } else if (user.isPro) {
           statusBadge = '<span class="badge badge-primary">Pro</span>';
         } else {
           statusBadge = '<span class="badge badge-warning">Basic</span>';
         }
 
+        // 每周额度：Pro用户10次，普通用户5次
+        const weeklyLimit = user.weeklyLimit || (user.isPro ? 10 : 5);
+        const weeklyUsage = user.weeklyUsage || 0;
+        const totalUsage = user.totalUsage || 0;  // 累计使用次数
+        const remarkDisplay = user.remark || '<span style="color:var(--text-muted)">-</span>';
+
         return `
         <tr>
           <td style="font-family:monospace;font-size:0.75rem;">${user.id}</td>
           <td style="font-weight:500;">${user.nickname || '未命名'}</td>
-          <td>${user.weeklyUsage || 0} / 5</td>
+          <td>${weeklyUsage} / ${weeklyLimit}</td>
           <td><span style="font-weight:600;color:${(user.extraQuota || 0) > 0 ? 'var(--primary)' : 'inherit'}">${user.extraQuota || 0}</span></td>
+          <td><span style="font-weight:600;color:${totalUsage > 0 ? '#059669' : 'inherit'}">${totalUsage}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:0.25rem;">
+              <span id="user-remark-${user.id}" style="font-size:0.8rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${user.remark || ''}">${remarkDisplay}</span>
+              <button class="btn btn-sm btn-secondary" onclick="editUserRemark('${user.id}')" style="padding:2px 6px;font-size:10px;">✎</button>
+            </div>
+          </td>
           <td>${statusBadge}</td>
           <td>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
@@ -1199,10 +1343,10 @@
           baseList = allUsers.filter(u => u.isUnlimited);
           break;
         case 'pro':
-          baseList = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) > 0);
+          baseList = allUsers.filter(u => !u.isUnlimited && u.isPro);
           break;
         case 'normal':
-          baseList = allUsers.filter(u => !u.isUnlimited && (u.extraQuota || 0) === 0);
+          baseList = allUsers.filter(u => !u.isUnlimited && !u.isPro);
           break;
       }
       const filtered = baseList.filter(u =>
@@ -1258,6 +1402,38 @@
         loadUsers();
       } else {
         alert('操作失败');
+      }
+    }
+
+    async function editUserRemark(userId) {
+      // 从allUsers中找到当前用户
+      const user = allUsers.find(u => u.id === userId);
+      const currentRemark = user?.remark || '';
+      const newRemark = prompt('请输入用户备注:', currentRemark);
+
+      if (newRemark === null) return;  // 用户点击取消
+
+      try {
+        const res = await fetch(`/api/admin/users/${encodeURIComponent(userId)}/remark`, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ remark: newRemark })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          // 更新本地数据
+          if (user) user.remark = newRemark;
+          // 刷新显示
+          loadUsers();
+        } else {
+          alert('更新失败: ' + (data.message || '未知错误'));
+        }
+      } catch (err) {
+        alert('更新备注失败: ' + err.message);
       }
     }
   </script>

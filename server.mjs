@@ -447,6 +447,58 @@ const saveQuotaCodes = async (codes) => {
   } catch (err) { }
 };
 
+// ===== 全局配额配置 =====
+// 默认配置：普通用户每周5次，Pro用户每周10次
+const DEFAULT_QUOTA_CONFIG = {
+  normalWeeklyLimit: 5,  // 普通用户每周限额
+  proWeeklyLimit: 10     // Pro用户每周限额
+};
+
+// 获取全局配额配置
+const getQuotaConfig = async () => {
+  if (USE_REDIS) {
+    try {
+      const data = await redisCommand('GET', 'quota:config');
+      if (data) {
+        return { ...DEFAULT_QUOTA_CONFIG, ...JSON.parse(data) };
+      }
+    } catch (err) {
+      console.error("[Redis] Failed to get config:", err.message);
+    }
+  }
+  // 降级到本地文件
+  try {
+    if (fs.existsSync(QUOTA_FILE)) {
+      const data = JSON.parse(fs.readFileSync(QUOTA_FILE, "utf-8"));
+      if (data.config) {
+        return { ...DEFAULT_QUOTA_CONFIG, ...data.config };
+      }
+    }
+  } catch (err) { }
+  return DEFAULT_QUOTA_CONFIG;
+};
+
+// 保存全局配额配置
+const saveQuotaConfig = async (config) => {
+  const newConfig = { ...DEFAULT_QUOTA_CONFIG, ...config };
+  if (USE_REDIS) {
+    try {
+      await redisCommand('SETEX', 'quota:config', REDIS_DATA_TTL, JSON.stringify(newConfig));
+      return;
+    } catch (err) {
+      console.error("[Redis] Failed to save config:", err.message);
+    }
+  }
+  // 降级到本地文件
+  try {
+    if (fs.existsSync(DATA_DIR)) {
+      const existing = fs.existsSync(QUOTA_FILE) ? JSON.parse(fs.readFileSync(QUOTA_FILE, "utf-8")) : {};
+      existing.config = newConfig;
+      fs.writeFileSync(QUOTA_FILE, JSON.stringify(existing, null, 2), "utf-8");
+    }
+  } catch (err) { }
+};
+
 // 初始化日志
 (async () => {
   if (USE_REDIS) {
@@ -469,6 +521,9 @@ const checkAndConsumeQuota = async (userId, nickname) => {
   // 从 Redis 获取所有用户数据
   const users = await getQuotaUsers();
 
+  // 获取全局配额配置
+  const quotaConfig = await getQuotaConfig();
+
   // 初始化用户数据
   if (!users[userId]) {
     users[userId] = {
@@ -476,6 +531,8 @@ const checkAndConsumeQuota = async (userId, nickname) => {
       currentWeek: getCurrentWeekId(),
       extraQuota: 0,
       isUnlimited: false,
+      isPro: false,  // Pro用户（通过兑换码获得，每周10次额度）
+      totalUsage: 0, // 累计使用次数（从2026年第1周开始统计）
       nickname: nickname || "未命名"
     };
   }
@@ -487,6 +544,8 @@ const checkAndConsumeQuota = async (userId, nickname) => {
 
   // 检查是否无限额度
   if (user.isUnlimited) {
+    user.totalUsage = (user.totalUsage || 0) + 1;  // 累计使用次数+1
+    await saveQuotaUsers(users);
     return { allowed: true, reason: "unlimited", remaining: 9999, isUnlimited: true };
   }
 
@@ -497,21 +556,26 @@ const checkAndConsumeQuota = async (userId, nickname) => {
     user.weeklyUsage = 0;
   }
 
-  // 1. 检查周免费额度 (每周5次)
-  if (user.weeklyUsage < 5) {
+  // 从全局配置获取每周额度限制
+  const weeklyLimit = user.isPro ? quotaConfig.proWeeklyLimit : quotaConfig.normalWeeklyLimit;
+
+  // 1. 检查周免费额度
+  if (user.weeklyUsage < weeklyLimit) {
     user.weeklyUsage++;
+    user.totalUsage = (user.totalUsage || 0) + 1;  // 累计使用次数+1
     await saveQuotaUsers(users);
-    return { allowed: true, reason: "weekly_free", remaining: 5 - user.weeklyUsage, isUnlimited: false };
+    return { allowed: true, reason: "weekly_free", remaining: weeklyLimit - user.weeklyUsage, isUnlimited: false, isPro: user.isPro };
   }
 
-  // 2. 检查额外额度 (兑换码)
+  // 2. 检查额外额度（一次性额度，用完才消耗每周额度）
   if (user.extraQuota > 0) {
     user.extraQuota--;
+    user.totalUsage = (user.totalUsage || 0) + 1;  // 累计使用次数+1
     await saveQuotaUsers(users);
-    return { allowed: true, reason: "extra_quota", remaining: user.extraQuota, isUnlimited: false };
+    return { allowed: true, reason: "extra_quota", remaining: user.extraQuota, isUnlimited: false, isPro: user.isPro };
   }
 
-  return { allowed: false, reason: "quota_exceeded", remaining: 0, isUnlimited: false };
+  return { allowed: false, reason: "quota_exceeded", remaining: 0, isUnlimited: false, isPro: user.isPro };
 };
 
 // ========== API 调用次数统计（Redis 持久化）==========
@@ -1531,6 +1595,36 @@ app.post("/api/admin/codes/generate-unlimited", verifyAdminToken, async (req, re
   });
 });
 
+// [Admin] 生成Pro兑换码（每周10次额度，纯 Redis 模式）
+app.post("/api/admin/codes/generate-pro", verifyAdminToken, async (req, res) => {
+  const { count, remark } = req.body;
+  const generateCount = parseInt(count) || 1;
+
+  // 从 Redis 获取现有兑换码
+  const codes = await getQuotaCodes();
+
+  const newCodes = [];
+  for (let i = 0; i < generateCount; i++) {
+    const code = "PRO-" + Math.random().toString(36).substr(2, 4).toUpperCase() + "-" + Math.random().toString(36).substr(2, 4).toUpperCase();
+
+    codes[code] = {
+      quota: 0,  // Pro用户没有一次性额度，而是每周10次
+      createTime: Date.now(),
+      type: 'pro',
+      remark: remark || ''
+    };
+    newCodes.push(code);
+  }
+
+  await saveQuotaCodes(codes);
+
+  res.json({
+    success: true,
+    data: { codes: newCodes, type: 'pro' },
+    message: `成功生成 ${newCodes.length} 个Pro用户兑换码`
+  });
+});
+
 // [Admin] 获取所有兑换码（纯 Redis 模式）
 app.get("/api/admin/codes", verifyAdminToken, async (req, res) => {
   const codes = await getQuotaCodes();
@@ -1581,11 +1675,64 @@ app.put("/api/admin/codes/:code/remark", verifyAdminToken, async (req, res) => {
 // [Admin] 获取用户配额列表（纯 Redis 模式）
 app.get("/api/admin/quota/users", verifyAdminToken, async (req, res) => {
   const users = await getQuotaUsers();
-  const userList = Object.entries(users).map(([id, data]) => ({
-    id,
-    ...data
-  }));
-  res.json({ success: true, data: userList });
+  const thisWeek = getCurrentWeekId();
+  const quotaConfig = await getQuotaConfig();  // 获取全局配额配置
+
+  const userList = Object.entries(users).map(([id, data]) => {
+    // 如果用户的 currentWeek 不是本周，显示的 weeklyUsage 应该是 0
+    const weeklyUsage = (data.currentWeek === thisWeek) ? (data.weeklyUsage || 0) : 0;
+    // 从全局配置获取每周限额
+    const weeklyLimit = data.isPro ? quotaConfig.proWeeklyLimit : quotaConfig.normalWeeklyLimit;
+
+    return {
+      id,
+      ...data,
+      weeklyUsage,      // 修正后的本周已用次数
+      weeklyLimit       // 每周限额（从全局配置获取）
+    };
+  });
+  res.json({
+    success: true,
+    data: userList,
+    config: quotaConfig  // 返回全局配额配置
+  });
+});
+
+// [Admin] 获取全局配额配置
+app.get("/api/admin/quota/config", verifyAdminToken, async (req, res) => {
+  const config = await getQuotaConfig();
+  res.json({ success: true, data: config });
+});
+
+// [Admin] 更新全局配额配置
+app.put("/api/admin/quota/config", verifyAdminToken, async (req, res) => {
+  const { normalWeeklyLimit, proWeeklyLimit } = req.body;
+
+  // 验证参数
+  const newNormalLimit = parseInt(normalWeeklyLimit);
+  const newProLimit = parseInt(proWeeklyLimit);
+
+  if (isNaN(newNormalLimit) || newNormalLimit < 0 || newNormalLimit > 100) {
+    return res.status(400).json({ success: false, message: "普通用户每周限额必须在0-100之间" });
+  }
+  if (isNaN(newProLimit) || newProLimit < 0 || newProLimit > 100) {
+    return res.status(400).json({ success: false, message: "Pro用户每周限额必须在0-100之间" });
+  }
+
+  const newConfig = {
+    normalWeeklyLimit: newNormalLimit,
+    proWeeklyLimit: newProLimit
+  };
+
+  await saveQuotaConfig(newConfig);
+
+  console.log(`[Admin] Updated quota config: Normal=${newNormalLimit}, Pro=${newProLimit}`);
+
+  res.json({
+    success: true,
+    message: `配额配置已更新：普通用户每周${newNormalLimit}次，Pro用户每周${newProLimit}次`,
+    data: newConfig
+  });
 });
 
 // [Admin] 设置用户无限额度（纯 Redis 模式）
@@ -1639,6 +1786,31 @@ app.post("/api/admin/users/add-quota", verifyAdminToken, async (req, res) => {
   });
 });
 
+// [Admin] 更新用户备注（纯 Redis 模式）
+app.put("/api/admin/users/:userId/remark", verifyAdminToken, async (req, res) => {
+  const { userId } = req.params;
+  const { remark } = req.body;
+  const users = await getQuotaUsers();
+
+  if (!userId || !users[userId]) {
+    return res.status(404).json({ success: false, message: "用户不存在或未初始化" });
+  }
+
+  users[userId].remark = remark || '';
+  await saveQuotaUsers(users);
+
+  console.log(`[Admin] Updated remark for user ${userId}: ${remark}`);
+
+  res.json({
+    success: true,
+    message: "备注已更新",
+    data: {
+      userId,
+      remark: users[userId].remark
+    }
+  });
+});
+
 // [User] 兑换额度（纯 Redis 模式）
 app.post("/api/user/redeem", async (req, res) => {
   const { code, userId, nickname } = req.body;
@@ -1675,6 +1847,7 @@ app.post("/api/user/redeem", async (req, res) => {
       currentWeek: getCurrentWeekId(),
       extraQuota: 0,
       isUnlimited: false,
+      isPro: false,
       nickname: nickname || "未命名"
     };
   }
@@ -1692,11 +1865,29 @@ app.post("/api/user/redeem", async (req, res) => {
       message: "🎉 恭喜！您已成功兑换无限畅享权益，现在可以无限使用识别功能了！",
       data: {
         isUnlimited: true,
+        isPro: users[userId].isPro || false,
+        totalExtra: users[userId].extraQuota || 0
+      }
+    });
+  } else if (codeData.type === 'pro') {
+    // Pro用户兑换码（每周10次额度）
+    users[userId].isPro = true;
+    delete codes[matchedCode];
+
+    await Promise.all([saveQuotaCodes(codes), saveQuotaUsers(users)]);
+
+    res.json({
+      success: true,
+      message: "🌟 恭喜！您已成功升级为Pro用户，每周可使用10次识别功能！",
+      data: {
+        isUnlimited: false,
+        isPro: true,
+        weeklyLimit: 10,
         totalExtra: users[userId].extraQuota || 0
       }
     });
   } else {
-    // 普通额度兑换码
+    // 普通额度兑换码（一次性额外额度）
     users[userId].extraQuota = (users[userId].extraQuota || 0) + codeData.quota;
     delete codes[matchedCode];
 
@@ -1704,9 +1895,10 @@ app.post("/api/user/redeem", async (req, res) => {
 
     res.json({
       success: true,
-      message: `兑换成功！增加了 ${codeData.quota} 次额度`,
+      message: `兑换成功！增加了 ${codeData.quota} 次额外额度`,
       data: {
         isUnlimited: false,
+        isPro: users[userId].isPro || false,
         totalExtra: users[userId].extraQuota
       }
     });
@@ -1717,25 +1909,30 @@ app.post("/api/user/redeem", async (req, res) => {
 app.get("/api/user/quota", async (req, res) => {
   const { userId } = req.query;
   const users = await getQuotaUsers();
+  const quotaConfig = await getQuotaConfig();  // 获取全局配额配置
 
   if (!userId || !users[userId]) {
     return res.json({
       success: true,
-      data: { weeklyUsage: 0, weeklyLimit: 5, extraQuota: 0, isUnlimited: false }
+      data: { weeklyUsage: 0, weeklyLimit: quotaConfig.normalWeeklyLimit, extraQuota: 0, isUnlimited: false, isPro: false }
     });
   }
 
   const user = users[userId];
   const thisWeek = getCurrentWeekId();
   const weeklyUsage = (user.currentWeek === thisWeek) ? user.weeklyUsage : 0;
+  const isPro = user.isPro || false;
+  // 从全局配置获取每周限额
+  const weeklyLimit = isPro ? quotaConfig.proWeeklyLimit : quotaConfig.normalWeeklyLimit;
 
   res.json({
     success: true,
     data: {
       weeklyUsage: weeklyUsage,
-      weeklyLimit: 5,
+      weeklyLimit: weeklyLimit,
       extraQuota: user.extraQuota || 0,
-      isUnlimited: user.isUnlimited || false
+      isUnlimited: user.isUnlimited || false,
+      isPro: isPro
     }
   });
 });
