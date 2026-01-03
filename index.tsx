@@ -64,6 +64,15 @@ interface ApiStats {
 
 // --- Helper Functions ---
 
+// 支持的模型列表
+const SUPPORTED_MODELS = {
+  'gemini-2.5-flash': { name: 'Flash', fullName: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费', badge: '推荐' },
+  'gemini-2.5-flash-lite': { name: 'Flash Lite', fullName: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费', badge: '高额度' }
+} as const;
+
+type ModelId = keyof typeof SUPPORTED_MODELS;
+const DEFAULT_MODEL: ModelId = 'gemini-2.5-flash';
+
 // --- Components ---
 
 const SettingsModal = ({
@@ -190,6 +199,7 @@ const App = () => {
   const [apiKeys, setApiKeys] = useState<string[]>([]);
   const [activeKeyIndex, setActiveKeyIndex] = useState(0);
   const [apiStats, setApiStats] = useState<ApiStats | null>(null);
+  const [selectedModel, setSelectedModel] = useState<ModelId>(DEFAULT_MODEL);
 
   useEffect(() => {
     const savedKeys = localStorage.getItem('gemini_api_keys');
@@ -212,12 +222,23 @@ const App = () => {
         console.error('Failed to load saved records:', e);
       }
     }
+
+    // 加载保存的模型选择
+    const savedModel = localStorage.getItem('gemini_model');
+    if (savedModel && savedModel in SUPPORTED_MODELS) {
+      setSelectedModel(savedModel as ModelId);
+    }
   }, []);
 
   useEffect(() => {
     localStorage.setItem('gemini_api_keys', JSON.stringify(apiKeys));
     localStorage.setItem('gemini_active_key_index', String(activeKeyIndex));
   }, [apiKeys, activeKeyIndex]);
+
+  // 保存模型选择到 localStorage
+  useEffect(() => {
+    localStorage.setItem('gemini_model', selectedModel);
+  }, [selectedModel]);
 
   // 保存识别记录到 localStorage
   useEffect(() => {
@@ -340,7 +361,9 @@ const App = () => {
     formData.append('file', file);
 
     // 如果有本地 API Key，通过请求头传递（可选，服务器优先使用环境变量）
-    const headers: Record<string, string> = {};
+    const headers: Record<string, string> = {
+      'x-gemini-model': selectedModel // 传递选择的模型
+    };
     if (apiKeys.length > 0) {
       headers['x-gemini-api-key'] = apiKeys[activeKeyIndex];
     }
@@ -418,6 +441,7 @@ const App = () => {
         headers: {
           'Content-Type': 'application/json',
           'x-gemini-api-key': key,
+          'x-gemini-model': selectedModel, // 传递选择的模型
         },
         body: JSON.stringify({ headers }),
       });
@@ -669,6 +693,58 @@ const App = () => {
                 </div>
               </div>
             )}
+            {/* 模型选择器 */}
+            <div className="relative group">
+              <button
+                className="flex items-center gap-2 bg-gradient-to-r from-amber-50 to-orange-50 px-3 py-2 rounded-xl border border-amber-200 hover:border-amber-300 transition-colors cursor-pointer"
+                title="切换识别模型"
+              >
+                <i className="fa-solid fa-robot text-amber-500 text-sm"></i>
+                <span className="text-sm font-medium text-amber-700 hidden sm:inline">
+                  {SUPPORTED_MODELS[selectedModel].name}
+                </span>
+                <span className={`text-[10px] px-1.5 py-0.5 rounded ${selectedModel === 'gemini-2.5-flash'
+                    ? 'bg-blue-100 text-blue-600'
+                    : 'bg-green-100 text-green-600'
+                  }`}>
+                  {SUPPORTED_MODELS[selectedModel].badge}
+                </span>
+                <i className="fa-solid fa-chevron-down text-xs text-amber-400"></i>
+              </button>
+              {/* 模型选择下拉菜单 */}
+              <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-2 opacity-0 group-hover:opacity-100 invisible group-hover:visible transition-all duration-200 z-30 min-w-[280px]">
+                <div className="text-xs font-bold text-gray-700 mb-2 px-2 py-1 border-b border-gray-100">选择识别模型</div>
+                {(Object.entries(SUPPORTED_MODELS) as [ModelId, typeof SUPPORTED_MODELS[ModelId]][]).map(([id, model]) => (
+                  <button
+                    key={id}
+                    onClick={() => setSelectedModel(id)}
+                    className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-start gap-3 ${selectedModel === id
+                        ? 'bg-amber-50 border border-amber-200'
+                        : 'hover:bg-gray-50'
+                      }`}
+                  >
+                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 ${selectedModel === id ? 'border-amber-500' : 'border-gray-300'
+                      }`}>
+                      {selectedModel === id && <div className="w-2 h-2 bg-amber-500 rounded-full"></div>}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-sm font-medium ${selectedModel === id ? 'text-amber-700' : 'text-gray-700'}`}>
+                          {model.fullName}
+                        </span>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${id === 'gemini-2.5-flash'
+                            ? 'bg-blue-100 text-blue-600'
+                            : 'bg-green-100 text-green-600'
+                          }`}>
+                          {model.badge}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-0.5">{model.description}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <button
               onClick={() => setShowSettings(true)}
               className="w-10 h-10 rounded-xl bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900 transition-colors flex items-center justify-center"

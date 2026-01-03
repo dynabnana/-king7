@@ -37,7 +37,27 @@ const ENV_API_KEYS = (process.env.GEMINI_API_KEY || "")
 
 let currentKeyIndex = 0;
 
-const MODEL_NAME = "gemini-2.5-flash";
+// 支持的模型列表
+const SUPPORTED_MODELS = {
+  'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费' },
+  'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费' }
+};
+const DEFAULT_MODEL = 'gemini-2.5-flash';
+
+// 从请求中获取模型名称（从请求头或请求体读取）
+const getModelName = (req) => {
+  // 优先从请求头读取
+  const headerModel = req.headers['x-gemini-model'];
+  if (headerModel && SUPPORTED_MODELS[headerModel]) {
+    return headerModel;
+  }
+  // 其次从请求体读取
+  const bodyModel = req.body?.model;
+  if (bodyModel && SUPPORTED_MODELS[bodyModel]) {
+    return bodyModel;
+  }
+  return DEFAULT_MODEL;
+};
 
 // 客户端缓存（按需创建，空闲时清理）
 let clientCache = new Map();
@@ -948,7 +968,7 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
     const client = await createClient(apiKey);
 
     const response = await client.models.generateContent({
-      model: MODEL_NAME,
+      model: getModelName(req),
       contents: {
         parts: [
           { inlineData: { mimeType: req.file.mimetype, data: base64Data } },
@@ -1049,7 +1069,7 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     const client = await createClient(apiKey);
 
     const response = await client.models.generateContent({
-      model: MODEL_NAME,
+      model: getModelName(req),
       contents: {
         parts: [
           {
@@ -1148,7 +1168,7 @@ app.post("/api/analyze/excel-header", async (req, res) => {
     const client = await createClient(apiKey);
 
     const response = await client.models.generateContent({
-      model: MODEL_NAME,
+      model: getModelName(req),
       contents: { parts: [{ text: prompt }] },
       config: { responseMimeType: "application/json" },
     });
