@@ -66,8 +66,9 @@ interface ApiStats {
 
 // 支持的模型列表
 const SUPPORTED_MODELS = {
-  'gemini-2.5-flash': { name: 'Flash', fullName: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费', badge: '推荐' },
-  'gemini-2.5-flash-lite': { name: 'Flash Lite', fullName: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费', badge: '高额度' }
+  'gemini-2.5-flash': { name: 'Flash', fullName: 'Gemini 2.5 Flash', description: '均衡性能', badge: '推荐' },
+  'gemini-2.5-flash-lite': { name: 'Flash Lite', fullName: 'Gemini 2.5 Flash Lite', description: '轻量高速', badge: '快速' },
+  'gemini-3-flash-preview': { name: '3 Flash', fullName: 'Gemini 3 Flash', description: '最新模型', badge: '最新' }
 } as const;
 
 type ModelId = keyof typeof SUPPORTED_MODELS;
@@ -704,7 +705,9 @@ const App = () => {
                   {SUPPORTED_MODELS[selectedModel].name}
                 </span>
                 <span className={`text-[10px] px-1.5 py-0.5 rounded ${selectedModel === 'gemini-2.5-flash'
-                    ? 'bg-blue-100 text-blue-600'
+                  ? 'bg-blue-100 text-blue-600'
+                  : selectedModel === 'gemini-3-flash-preview'
+                    ? 'bg-purple-100 text-purple-600'
                     : 'bg-green-100 text-green-600'
                   }`}>
                   {SUPPORTED_MODELS[selectedModel].badge}
@@ -719,8 +722,8 @@ const App = () => {
                     key={id}
                     onClick={() => setSelectedModel(id)}
                     className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors flex items-start gap-3 ${selectedModel === id
-                        ? 'bg-amber-50 border border-amber-200'
-                        : 'hover:bg-gray-50'
+                      ? 'bg-amber-50 border border-amber-200'
+                      : 'hover:bg-gray-50'
                       }`}
                   >
                     <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center mt-0.5 ${selectedModel === id ? 'border-amber-500' : 'border-gray-300'
@@ -733,7 +736,9 @@ const App = () => {
                           {model.fullName}
                         </span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${id === 'gemini-2.5-flash'
-                            ? 'bg-blue-100 text-blue-600'
+                          ? 'bg-blue-100 text-blue-600'
+                          : id === 'gemini-3-flash-preview'
+                            ? 'bg-purple-100 text-purple-600'
                             : 'bg-green-100 text-green-600'
                           }`}>
                           {model.badge}

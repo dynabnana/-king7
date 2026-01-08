@@ -40,9 +40,12 @@ let currentKeyIndex = 0;
 // 支持的模型列表
 const SUPPORTED_MODELS = {
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费' },
-  'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费' }
+  'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费' },
+  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: 'KING专属，最新模型' }
 };
 const DEFAULT_MODEL = 'gemini-2.5-flash';
+// KING 用户专用模型（isUnlimited 用户）
+const KING_USER_MODEL = 'gemini-3-flash-preview';
 
 // 从请求中获取模型名称（从请求头或请求体读取）
 const getModelName = (req) => {
@@ -1068,8 +1071,12 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     const apiKey = getApiKey(req);
     const client = await createClient(apiKey);
 
+    // KING 用户使用 Gemini 3 Flash 模型
+    const modelToUse = quotaResult.isUnlimited ? KING_USER_MODEL : getModelName(req);
+    console.log(`[image-base64] User ${nickname || userId || 'anonymous'} using model: ${modelToUse} (isUnlimited: ${quotaResult.isUnlimited})`);
+
     const response = await client.models.generateContent({
-      model: getModelName(req),
+      model: modelToUse,
       contents: {
         parts: [
           {
