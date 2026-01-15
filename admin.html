@@ -496,6 +496,9 @@
         <button onclick="switchTab('users')" class="nav-item tab-btn" data-tab="users">
           <span>👥</span> 用户配额
         </button>
+        <button onclick="switchTab('summary')" class="nav-item tab-btn" data-tab="summary">
+          <span>🧠</span> 智能小结
+        </button>
       </nav>
 
       <div class="sidebar-footer">
@@ -754,6 +757,213 @@
           </div>
         </div>
 
+        <!-- Tab 4: Summary (智能小结) -->
+        <div id="tab-summary" class="tab-content">
+          <div class="grid-4">
+            <div class="stat-card">
+              <div class="stat-title">📝 文本小结</div>
+              <div class="stat-value" id="summaryTextCalls">-</div>
+              <div class="stat-desc">累计调用次数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">🖼️ 图片小结</div>
+              <div class="stat-value" id="summaryImageCalls">-</div>
+              <div class="stat-desc">累计调用次数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">📊 总调用</div>
+              <div class="stat-value" id="summaryTotalCalls">-</div>
+              <div class="stat-desc">智能小结总次数</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-title">👥 使用人数</div>
+              <div class="stat-value" id="summaryUserCount">-</div>
+              <div class="stat-desc">已使用小结用户</div>
+            </div>
+          </div>
+
+          <!-- 配额配置面板 -->
+          <div class="action-panel" style="background: linear-gradient(to right, #f0fdf4, white); margin-bottom: 1rem;">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: #15803d;">🧠 智能小结配额配置</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">分别设置不同等级用户的每周使用次数和图片上传限制</p>
+              
+              <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
+                <!-- 每周次数限制 -->
+                <div>
+                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">每周使用次数</h4>
+                  <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="min-width: 120px;">
+                      <label>👤 普通用户</label>
+                      <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="number" id="summaryNormalLimit" value="2" min="0" max="100" style="width:70px;">
+                        <span style="color:var(--text-muted); font-size: 0.8rem;">次/周</span>
+                      </div>
+                    </div>
+                    <div class="form-group" style="min-width: 120px;">
+                      <label>⭐ Pro用户</label>
+                      <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="number" id="summaryProLimit" value="5" min="0" max="100" style="width:70px;">
+                        <span style="color:var(--text-muted); font-size: 0.8rem;">次/周</span>
+                      </div>
+                    </div>
+                    <div class="form-group" style="min-width: 120px;">
+                      <label>💎 KING用户</label>
+                      <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="number" id="summaryKingLimit" value="999" min="0" max="9999" style="width:80px;">
+                        <span style="color:var(--text-muted); font-size: 0.8rem;">次/周</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- 图片数量限制 -->
+                <div>
+                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">图片上传上限</h4>
+                  <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="min-width: 120px;">
+                      <label>👤 普通用户</label>
+                      <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="number" id="summaryNormalImages" value="1" min="1" max="10" style="width:60px;">
+                        <span style="color:var(--text-muted); font-size: 0.8rem;">张</span>
+                      </div>
+                    </div>
+                    <div class="form-group" style="min-width: 120px;">
+                      <label>⭐ Pro用户</label>
+                      <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="number" id="summaryProImages" value="3" min="1" max="10" style="width:60px;">
+                        <span style="color:var(--text-muted); font-size: 0.8rem;">张</span>
+                      </div>
+                    </div>
+                    <div class="form-group" style="min-width: 120px;">
+                      <label>💎 KING用户</label>
+                      <div style="display:flex;align-items:center;gap:0.5rem;">
+                        <input type="number" id="summaryKingImages" value="5" min="1" max="10" style="width:60px;">
+                        <span style="color:var(--text-muted); font-size: 0.8rem;">张</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center;">
+                <button class="btn btn-success" onclick="saveSummaryConfig()">💾 保存配置</button>
+                <span id="summaryConfigStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- API 提供商说明 -->
+          <div class="action-panel" style="background: linear-gradient(to right, #fef3c7, white);">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: #d97706;">⚡ API 配置说明</h3>
+              <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.6;">
+                智能小结功能支持以下 API 提供商（按优先级）：<br>
+                1. <strong>七牛云 AI</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">QINIU_AI_API_KEY</code><br>
+                2. <strong>Google Gemini</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">SUMMARY_GEMINI_API_KEY</code><br>
+                <br>
+                如两者都配置，优先使用七牛云。如七牛云未配置或调用失败，会自动切换到 Gemini。
+              </p>
+            </div>
+          </div>
+
+          <!-- 提示词槽位管理 -->
+          <div class="action-panel" style="background: linear-gradient(to right, #ede9fe, white); margin-top: 1.5rem;">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: #7c3aed;">📝 提示词槽位管理</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                预设4个提示词模板，调用API时可以通过 <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">promptSlot</code> 参数指定使用哪个槽位（slot1-slot4）
+              </p>
+              
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+                <!-- 槽位1 -->
+                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span class="badge badge-primary">槽位 1</span>
+                    <span id="slot1Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">名称</label>
+                    <input type="text" id="slot1Name" placeholder="如：肾功能分析" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">描述</label>
+                    <input type="text" id="slot1Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.75rem;">提示词内容</label>
+                    <textarea id="slot1Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
+                  </div>
+                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot1')">保存槽位1</button>
+                </div>
+
+                <!-- 槽位2 -->
+                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span class="badge badge-primary">槽位 2</span>
+                    <span id="slot2Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">名称</label>
+                    <input type="text" id="slot2Name" placeholder="如：血常规分析" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">描述</label>
+                    <input type="text" id="slot2Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.75rem;">提示词内容</label>
+                    <textarea id="slot2Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
+                  </div>
+                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot2')">保存槽位2</button>
+                </div>
+
+                <!-- 槽位3 -->
+                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span class="badge badge-primary">槽位 3</span>
+                    <span id="slot3Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">名称</label>
+                    <input type="text" id="slot3Name" placeholder="如：尿常规分析" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">描述</label>
+                    <input type="text" id="slot3Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.75rem;">提示词内容</label>
+                    <textarea id="slot3Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
+                  </div>
+                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot3')">保存槽位3</button>
+                </div>
+
+                <!-- 槽位4 -->
+                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                    <span class="badge badge-primary">槽位 4</span>
+                    <span id="slot4Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">名称</label>
+                    <input type="text" id="slot4Name" placeholder="如：综合体检" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.5rem;">
+                    <label style="font-size: 0.75rem;">描述</label>
+                    <input type="text" id="slot4Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
+                  </div>
+                  <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <label style="font-size: 0.75rem;">提示词内容</label>
+                    <textarea id="slot4Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
+                  </div>
+                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot4')">保存槽位4</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </main>
   </div>
@@ -792,6 +1002,8 @@
       loadStats();
       loadCodes();
       loadUsers();
+      loadSummaryStats();
+      loadSummaryPrompts();
     }
 
     /* --- Auth --- */
@@ -1434,6 +1646,157 @@
         }
       } catch (err) {
         alert('更新备注失败: ' + err.message);
+      }
+    }
+
+    /* --- Summary (智能小结) --- */
+    async function loadSummaryStats() {
+      try {
+        const res = await fetch('/api/admin/summary/stats', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success) {
+          // 更新统计卡片
+          document.getElementById('summaryTextCalls').textContent = data.stats?.textSummary || 0;
+          document.getElementById('summaryImageCalls').textContent = data.stats?.imageSummary || 0;
+          document.getElementById('summaryTotalCalls').textContent = data.stats?.totalCalls || 0;
+          document.getElementById('summaryUserCount').textContent = data.userCount || 0;
+          
+          // 更新配置表单
+          if (data.config) {
+            document.getElementById('summaryNormalLimit').value = data.config.normalWeeklyLimit || 2;
+            document.getElementById('summaryProLimit').value = data.config.proWeeklyLimit || 5;
+            document.getElementById('summaryKingLimit').value = data.config.kingWeeklyLimit || 999;
+            document.getElementById('summaryNormalImages').value = data.config.maxImagesNormal || 1;
+            document.getElementById('summaryProImages').value = data.config.maxImagesPro || 3;
+            document.getElementById('summaryKingImages').value = data.config.maxImagesKing || 5;
+          }
+        }
+      } catch (err) {
+        console.error('加载智能小结统计失败:', err);
+      }
+    }
+
+    async function saveSummaryConfig() {
+      const config = {
+        normalWeeklyLimit: parseInt(document.getElementById('summaryNormalLimit').value) || 2,
+        proWeeklyLimit: parseInt(document.getElementById('summaryProLimit').value) || 5,
+        kingWeeklyLimit: parseInt(document.getElementById('summaryKingLimit').value) || 999,
+        maxImagesNormal: parseInt(document.getElementById('summaryNormalImages').value) || 1,
+        maxImagesPro: parseInt(document.getElementById('summaryProImages').value) || 3,
+        maxImagesKing: parseInt(document.getElementById('summaryKingImages').value) || 5
+      };
+
+      const statusEl = document.getElementById('summaryConfigStatus');
+      statusEl.textContent = '保存中...';
+      statusEl.style.color = 'var(--text-muted)';
+
+      try {
+        const res = await fetch('/api/admin/summary/config', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(config)
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          statusEl.textContent = '✅ 配置已保存';
+          statusEl.style.color = 'var(--success)';
+          setTimeout(() => { statusEl.textContent = ''; }, 3000);
+        } else {
+          statusEl.textContent = '❌ 保存失败: ' + (data.message || '未知错误');
+          statusEl.style.color = 'var(--danger)';
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ 保存失败: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
+      }
+    }
+
+    /* --- Summary Prompts (提示词槽位) --- */
+    async function loadSummaryPrompts() {
+      try {
+        const res = await fetch('/api/admin/summary/prompts', {
+          headers: { 'Authorization': `Bearer ${authToken}` }
+        });
+        const data = await res.json();
+        
+        if (data.success && data.prompts) {
+          // 填充四个槽位
+          for (let i = 1; i <= 4; i++) {
+            const slot = `slot${i}`;
+            const slotData = data.prompts[slot] || {};
+            
+            document.getElementById(`${slot}Name`).value = slotData.name || '';
+            document.getElementById(`${slot}Desc`).value = slotData.description || '';
+            document.getElementById(`${slot}Prompt`).value = slotData.prompt || '';
+            
+            // 更新状态标签
+            const statusEl = document.getElementById(`${slot}Status`);
+            if (slotData.prompt && slotData.prompt.trim()) {
+              statusEl.textContent = '✅ 已配置';
+              statusEl.style.color = 'var(--success)';
+            } else {
+              statusEl.textContent = '未设置';
+              statusEl.style.color = 'var(--text-muted)';
+            }
+          }
+        }
+      } catch (err) {
+        console.error('加载提示词槽位失败:', err);
+      }
+    }
+
+    async function savePromptSlot(slotId) {
+      const name = document.getElementById(`${slotId}Name`).value.trim();
+      const description = document.getElementById(`${slotId}Desc`).value.trim();
+      const prompt = document.getElementById(`${slotId}Prompt`).value;
+
+      const statusEl = document.getElementById(`${slotId}Status`);
+      statusEl.textContent = '保存中...';
+      statusEl.style.color = 'var(--text-muted)';
+
+      try {
+        const res = await fetch('/api/admin/summary/prompts', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            slot: slotId,
+            name: name || `槽位${slotId.replace('slot', '')}`,
+            description: description || (prompt ? '已设置' : '未设置'),
+            prompt: prompt
+          })
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+          if (prompt && prompt.trim()) {
+            statusEl.textContent = '✅ 已保存';
+            statusEl.style.color = 'var(--success)';
+          } else {
+            statusEl.textContent = '已清空';
+            statusEl.style.color = 'var(--text-muted)';
+          }
+          setTimeout(() => {
+            loadSummaryPrompts(); // 刷新显示
+          }, 1500);
+        } else {
+          statusEl.textContent = '❌ 保存失败';
+          statusEl.style.color = 'var(--danger)';
+        }
+      } catch (err) {
+        statusEl.textContent = '❌ 失败: ' + err.message;
+        statusEl.style.color = 'var(--danger)';
       }
     }
   </script>

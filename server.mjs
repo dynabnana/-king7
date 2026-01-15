@@ -1222,6 +1222,780 @@ app.post("/api/analyze/excel-header", async (req, res) => {
 });
 
 // ===========================================
+// 智能小结功能（独立模块 - 使用七牛云 API）
+// ===========================================
+
+// 七牛云 AI API 配置
+const QINIU_AI_API_KEY = process.env.QINIU_AI_API_KEY || "";
+const QINIU_AI_BASE_URL = "https://api.qnaigc.com/v1";
+
+// Gemini API 配置（智能小结专用，与OCR的GEMINI_API_KEY分开）
+const SUMMARY_GEMINI_API_KEY = process.env.SUMMARY_GEMINI_API_KEY || "";
+
+// 智能小结支持的模型
+const SUMMARY_MODELS = {
+  'gemini-3-flash': 'gemini-2.0-flash-001',           // 默认模型
+  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20' // 备选模型
+};
+// Gemini API 直连时使用的模型名
+const GEMINI_DIRECT_MODELS = {
+  'gemini-3-flash': 'gemini-2.0-flash',
+  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20'
+};
+const DEFAULT_SUMMARY_MODEL = 'gemini-3-flash';
+
+// 智能小结默认配额配置
+const DEFAULT_SUMMARY_QUOTA_CONFIG = {
+  normalWeeklyLimit: 2,   // 普通用户每周2次
+  proWeeklyLimit: 5,      // Pro用户每周5次
+  kingWeeklyLimit: 999,   // KING用户无限制
+  maxImagesNormal: 1,     // 普通用户最多1张图
+  maxImagesPro: 3,        // Pro用户最多3张图
+  maxImagesKing: 5        // KING用户最多5张图
+};
+
+// 智能小结提示词槽位（4个槽位）
+const DEFAULT_SUMMARY_PROMPTS = {
+  slot1: {
+    name: "槽位1",
+    prompt: "",
+    description: "未设置"
+  },
+  slot2: {
+    name: "槽位2", 
+    prompt: "",
+    description: "未设置"
+  },
+  slot3: {
+    name: "槽位3",
+    prompt: "",
+    description: "未设置"
+  },
+  slot4: {
+    name: "槽位4",
+    prompt: "",
+    description: "未设置"
+  }
+};
+
+// 获取提示词槽位配置
+const getSummaryPrompts = async () => {
+  if (USE_REDIS) {
+    try {
+      const data = await redisCommand('GET', 'summary:prompts');
+      if (data) {
+        return { ...DEFAULT_SUMMARY_PROMPTS, ...JSON.parse(data) };
+      }
+    } catch (err) {
+      console.error("[Redis] Failed to get summary prompts:", err.message);
+    }
+  }
+  return DEFAULT_SUMMARY_PROMPTS;
+};
+
+// 保存提示词槽位配置
+const saveSummaryPrompts = async (prompts) => {
+  const newPrompts = { ...DEFAULT_SUMMARY_PROMPTS, ...prompts };
+  if (USE_REDIS) {
+    try {
+      await redisCommand('SETEX', 'summary:prompts', REDIS_DATA_TTL, JSON.stringify(newPrompts));
+      return true;
+    } catch (err) {
+      console.error("[Redis] Failed to save summary prompts:", err.message);
+    }
+  }
+  return false;
+};
+
+// 获取智能小结配额配置（从 Redis）
+const getSummaryConfig = async () => {
+  if (USE_REDIS) {
+    try {
+      const data = await redisCommand('GET', 'summary:config');
+      if (data) {
+        return { ...DEFAULT_SUMMARY_QUOTA_CONFIG, ...JSON.parse(data) };
+      }
+    } catch (err) {
+      console.error("[Redis] Failed to get summary config:", err.message);
+    }
+  }
+  return DEFAULT_SUMMARY_QUOTA_CONFIG;
+};
+
+// 保存智能小结配额配置
+const saveSummaryConfig = async (config) => {
+  const newConfig = { ...DEFAULT_SUMMARY_QUOTA_CONFIG, ...config };
+  if (USE_REDIS) {
+    try {
+      await redisCommand('SETEX', 'summary:config', REDIS_DATA_TTL, JSON.stringify(newConfig));
+      return true;
+    } catch (err) {
+      console.error("[Redis] Failed to save summary config:", err.message);
+    }
+  }
+  return false;
+};
+
+// 获取用户智能小结使用数据
+const getSummaryUsers = async () => {
+  if (USE_REDIS) {
+    try {
+      const data = await redisCommand('GET', 'summary:users');
+      return data ? JSON.parse(data) : {};
+    } catch (err) {
+      console.error("[Redis] Failed to get summary users:", err.message);
+    }
+  }
+  return {};
+};
+
+// 保存用户智能小结使用数据
+const saveSummaryUsers = async (users) => {
+  if (USE_REDIS) {
+    try {
+      await redisCommand('SETEX', 'summary:users', REDIS_DATA_TTL, JSON.stringify(users));
+      return true;
+    } catch (err) {
+      console.error("[Redis] Failed to save summary users:", err.message);
+    }
+  }
+  return false;
+};
+
+// 检查并扣除智能小结配额
+const checkAndConsumeSummaryQuota = async (userId, nickname, userLevel = 'normal') => {
+  if (!userId) {
+    return { allowed: false, reason: "no_user_id", remaining: 0 };
+  }
+
+  const config = await getSummaryConfig();
+  const users = await getSummaryUsers();
+
+  // 初始化用户
+  if (!users[userId]) {
+    users[userId] = {
+      weeklyUsage: 0,
+      currentWeek: getCurrentWeekId(),
+      totalUsage: 0,
+      nickname: nickname || "未命名"
+    };
+  }
+
+  const user = users[userId];
+  if (nickname) user.nickname = nickname;
+
+  // 检查周重置
+  const thisWeek = getCurrentWeekId();
+  if (user.currentWeek !== thisWeek) {
+    user.currentWeek = thisWeek;
+    user.weeklyUsage = 0;
+  }
+
+  // 根据用户等级获取每周限额
+  let weeklyLimit;
+  switch (userLevel) {
+    case 'king':
+      weeklyLimit = config.kingWeeklyLimit;
+      break;
+    case 'pro':
+      weeklyLimit = config.proWeeklyLimit;
+      break;
+    default:
+      weeklyLimit = config.normalWeeklyLimit;
+  }
+
+  // 检查是否超过限额
+  if (user.weeklyUsage >= weeklyLimit) {
+    return { 
+      allowed: false, 
+      reason: "quota_exceeded", 
+      remaining: 0,
+      weeklyLimit,
+      weeklyUsage: user.weeklyUsage
+    };
+  }
+
+  // 扣除配额
+  user.weeklyUsage++;
+  user.totalUsage = (user.totalUsage || 0) + 1;
+  await saveSummaryUsers(users);
+
+  return { 
+    allowed: true, 
+    reason: "success", 
+    remaining: weeklyLimit - user.weeklyUsage,
+    weeklyLimit,
+    weeklyUsage: user.weeklyUsage
+  };
+};
+
+// 调用七牛云 AI API
+const callQiniuAI = async (model, messages, maxTokens = 2000) => {
+  const modelId = SUMMARY_MODELS[model] || SUMMARY_MODELS[DEFAULT_SUMMARY_MODEL];
+  
+  console.log(`[Summary] Calling Qiniu AI with model: ${modelId}`);
+
+  const response = await fetch(`${QINIU_AI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${QINIU_AI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: messages,
+      max_tokens: maxTokens,
+      temperature: 0.7
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[Summary] Qiniu AI error: ${response.status}`, errorText);
+    throw new Error(`Qiniu AI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices?.[0]?.message?.content || "",
+    usage: data.usage || {},
+    provider: 'qiniu'
+  };
+};
+
+// 调用 Gemini API（使用 @google/genai SDK）
+const callGeminiAI = async (model, messages, maxTokens = 2000) => {
+  const GenAI = await loadGenAI();
+  const client = new GenAI({ apiKey: SUMMARY_GEMINI_API_KEY });
+  
+  const modelName = GEMINI_DIRECT_MODELS[model] || GEMINI_DIRECT_MODELS[DEFAULT_SUMMARY_MODEL];
+  console.log(`[Summary] Calling Gemini API with model: ${modelName}`);
+
+  // 转换消息格式为 Gemini 格式
+  const systemPrompt = messages.find(m => m.role === 'system')?.content || '';
+  const userMessage = messages.find(m => m.role === 'user');
+  
+  let contents;
+  if (typeof userMessage?.content === 'string') {
+    // 纯文本消息
+    contents = {
+      parts: [{ text: userMessage.content }]
+    };
+  } else if (Array.isArray(userMessage?.content)) {
+    // 多模态消息（包含图片）
+    const parts = [];
+    for (const item of userMessage.content) {
+      if (item.type === 'text') {
+        parts.push({ text: item.text });
+      } else if (item.type === 'image_url') {
+        // 从 data URL 提取 base64
+        const dataUrl = item.image_url.url;
+        const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+        if (matches) {
+          parts.push({
+            inlineData: {
+              mimeType: matches[1],
+              data: matches[2]
+            }
+          });
+        }
+      }
+    }
+    contents = { parts };
+  }
+
+  const response = await client.models.generateContent({
+    model: modelName,
+    contents: contents,
+    config: {
+      systemInstruction: systemPrompt,
+      maxOutputTokens: maxTokens,
+      temperature: 0.7
+    }
+  });
+
+  return {
+    content: response.text || "",
+    usage: {},
+    provider: 'gemini'
+  };
+};
+
+// 智能小结 AI 调用（优先七牛云，降级到 Gemini）
+const callSummaryAI = async (model, messages, maxTokens = 2000) => {
+  // 优先使用七牛云
+  if (QINIU_AI_API_KEY) {
+    try {
+      return await callQiniuAI(model, messages, maxTokens);
+    } catch (err) {
+      console.error('[Summary] Qiniu AI failed, trying Gemini:', err.message);
+      // 七牛云失败，尝试 Gemini
+      if (SUMMARY_GEMINI_API_KEY) {
+        return await callGeminiAI(model, messages, maxTokens);
+      }
+      throw err;
+    }
+  }
+  
+  // 如果七牛云未配置，使用 Gemini
+  if (SUMMARY_GEMINI_API_KEY) {
+    return await callGeminiAI(model, messages, maxTokens);
+  }
+  
+  throw new Error("No AI API configured. Set QINIU_AI_API_KEY or SUMMARY_GEMINI_API_KEY.");
+};
+
+// 智能小结 API 调用统计
+let summaryApiStats = {
+  textSummary: 0,
+  imageSummary: 0,
+  totalCalls: 0
+};
+
+// 从 Redis 加载智能小结统计
+const loadSummaryStats = async () => {
+  if (!USE_REDIS) return;
+  try {
+    const data = await redisCommand('GET', 'summary:stats');
+    if (data) {
+      const saved = JSON.parse(data);
+      summaryApiStats.textSummary = saved.textSummary || 0;
+      summaryApiStats.imageSummary = saved.imageSummary || 0;
+      summaryApiStats.totalCalls = saved.totalCalls || 0;
+      console.log(`[Redis] Loaded summary stats: ${summaryApiStats.totalCalls} total calls`);
+    }
+  } catch (err) {
+    console.error("[Redis] Failed to load summary stats:", err.message);
+  }
+};
+
+// 保存智能小结统计到 Redis
+const saveSummaryStats = async () => {
+  if (!USE_REDIS) return;
+  try {
+    await redisCommand('SETEX', 'summary:stats', REDIS_DATA_TTL, JSON.stringify({
+      textSummary: summaryApiStats.textSummary,
+      imageSummary: summaryApiStats.imageSummary,
+      totalCalls: summaryApiStats.totalCalls,
+      lastUpdated: new Date().toISOString()
+    }));
+  } catch (err) {
+    console.error("[Redis] Failed to save summary stats:", err.message);
+  }
+};
+
+// 增加智能小结调用统计
+const incrementSummaryStats = async (type) => {
+  if (type === 'text') {
+    summaryApiStats.textSummary++;
+  } else if (type === 'image') {
+    summaryApiStats.imageSummary++;
+  }
+  summaryApiStats.totalCalls++;
+  saveSummaryStats().catch(err => console.error('[Summary Stats] Failed to save:', err.message));
+};
+
+// 初始化加载统计
+loadSummaryStats();
+
+// ===========================================
+// API 端点：智能小结 - 文本输入模式
+// ===========================================
+app.post("/api/summary/text", async (req, res) => {
+  try {
+    const { userId, nickname, userLevel, model, examData, systemPrompt, promptSlot } = req.body || {};
+
+    // 参数验证
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "userId is required" });
+    }
+    if (!examData || !examData.items || examData.items.length === 0) {
+      return res.status(400).json({ success: false, error: "examData with items is required" });
+    }
+
+    // 确定使用的提示词：优先使用 promptSlot 预设，其次使用传入的 systemPrompt
+    let finalPrompt = systemPrompt;
+    if (promptSlot && ['slot1', 'slot2', 'slot3', 'slot4'].includes(promptSlot)) {
+      const prompts = await getSummaryPrompts();
+      const slotData = prompts[promptSlot];
+      if (slotData && slotData.prompt && slotData.prompt.trim()) {
+        finalPrompt = slotData.prompt;
+        console.log(`[Summary] Using prompt slot: ${promptSlot} (${slotData.name})`);
+      }
+    }
+
+    if (!finalPrompt) {
+      return res.status(400).json({ success: false, error: "systemPrompt or valid promptSlot is required" });
+    }
+
+    // 检查配额
+    const quotaResult = await checkAndConsumeSummaryQuota(userId, nickname, userLevel || 'normal');
+    if (!quotaResult.allowed) {
+      return res.status(403).json({
+        success: false,
+        error: "QUOTA_EXCEEDED",
+        message: "本周智能小结次数已用完",
+        quota: quotaResult
+      });
+    }
+
+    // 构建消息内容
+    const userContent = `检查日期: ${examData.date || '未知'}\n\n检查项目:\n${
+      examData.items.map(item => 
+        `- ${item.name}: ${item.value} ${item.unit || ''} (参考范围: ${item.range || '未提供'})`
+      ).join('\n')
+    }`;
+
+    const messages = [
+      { role: "system", content: finalPrompt },
+      { role: "user", content: userContent }
+    ];
+
+    // 调用 AI API（优先七牛云，备选 Gemini）
+    const result = await callSummaryAI(model || DEFAULT_SUMMARY_MODEL, messages);
+
+    // 记录统计
+    await incrementSummaryStats('text');
+
+    // 记录使用日志
+    await logUserUsage(req, "summary-text", {
+      itemsCount: examData.items.length,
+      model: model || DEFAULT_SUMMARY_MODEL
+    });
+
+    console.log(`[Summary] Text summary completed for user ${nickname || userId}`);
+
+    return res.json({
+      success: true,
+      summary: result.content,
+      model: model || DEFAULT_SUMMARY_MODEL,
+      usage: result.usage,
+      quota: {
+        remaining: quotaResult.remaining,
+        weeklyLimit: quotaResult.weeklyLimit,
+        weeklyUsage: quotaResult.weeklyUsage
+      }
+    });
+
+  } catch (err) {
+    console.error("Summary text error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    
+    if (message.includes("429") || message.includes("rate")) {
+      return res.status(429).json({
+        success: false,
+        error: "RATE_LIMIT",
+        message: "请求过于频繁，请稍后再试"
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: "SUMMARY_FAILED",
+      message
+    });
+  }
+});
+
+// ===========================================
+// API 端点：智能小结 - 图片输入模式（支持多图）
+// ===========================================
+app.post("/api/summary/images", async (req, res) => {
+  try {
+    const { userId, nickname, userLevel, model, images, systemPrompt, promptSlot } = req.body || {};
+
+    // 参数验证
+    if (!userId) {
+      return res.status(400).json({ success: false, error: "userId is required" });
+    }
+    if (!images || !Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ success: false, error: "images array is required" });
+    }
+
+    // 确定使用的提示词：优先使用 promptSlot 预设，其次使用传入的 systemPrompt
+    let finalPrompt = systemPrompt;
+    if (promptSlot && ['slot1', 'slot2', 'slot3', 'slot4'].includes(promptSlot)) {
+      const prompts = await getSummaryPrompts();
+      const slotData = prompts[promptSlot];
+      if (slotData && slotData.prompt && slotData.prompt.trim()) {
+        finalPrompt = slotData.prompt;
+        console.log(`[Summary] Using prompt slot: ${promptSlot} (${slotData.name})`);
+      }
+    }
+
+    if (!finalPrompt) {
+      return res.status(400).json({ success: false, error: "systemPrompt or valid promptSlot is required" });
+    }
+
+    // 获取配置，检查图片数量限制
+    const config = await getSummaryConfig();
+    let maxImages;
+    switch (userLevel) {
+      case 'king':
+        maxImages = config.maxImagesKing;
+        break;
+      case 'pro':
+        maxImages = config.maxImagesPro;
+        break;
+      default:
+        maxImages = config.maxImagesNormal;
+    }
+
+    if (images.length > maxImages) {
+      return res.status(400).json({
+        success: false,
+        error: "IMAGE_LIMIT_EXCEEDED",
+        message: `您最多可以上传 ${maxImages} 张图片`,
+        maxImages
+      });
+    }
+
+    // 检查配额
+    const quotaResult = await checkAndConsumeSummaryQuota(userId, nickname, userLevel || 'normal');
+    if (!quotaResult.allowed) {
+      return res.status(403).json({
+        success: false,
+        error: "QUOTA_EXCEEDED",
+        message: "本周智能小结次数已用完",
+        quota: quotaResult
+      });
+    }
+
+    // 构建多模态消息内容（七牛云支持 OpenAI 格式的多模态输入）
+    const contentParts = [];
+    
+    // 添加图片
+    images.forEach((img, index) => {
+      let base64Data = img.base64;
+      // 移除可能的 data URL 前缀
+      if (base64Data.includes(",")) {
+        base64Data = base64Data.split(",")[1];
+      }
+      
+      contentParts.push({
+        type: "image_url",
+        image_url: {
+          url: `data:${img.mimeType || 'image/jpeg'};base64,${base64Data}`
+        }
+      });
+    });
+    
+    // 添加文本提示
+    contentParts.push({
+      type: "text",
+      text: "请根据上传的检查报告图片进行分析总结。"
+    });
+
+    const messages = [
+      { role: "system", content: finalPrompt },
+      { role: "user", content: contentParts }
+    ];
+
+    // 调用 AI API（优先七牛云，备选 Gemini）
+    const result = await callSummaryAI(model || DEFAULT_SUMMARY_MODEL, messages, 3000);
+
+    // 记录统计
+    await incrementSummaryStats('image');
+
+    // 记录使用日志
+    await logUserUsage(req, "summary-images", {
+      imagesCount: images.length,
+      model: model || DEFAULT_SUMMARY_MODEL
+    });
+
+    console.log(`[Summary] Image summary completed for user ${nickname || userId}, ${images.length} images`);
+
+    return res.json({
+      success: true,
+      summary: result.content,
+      model: model || DEFAULT_SUMMARY_MODEL,
+      imagesProcessed: images.length,
+      usage: result.usage,
+      quota: {
+        remaining: quotaResult.remaining,
+        weeklyLimit: quotaResult.weeklyLimit,
+        weeklyUsage: quotaResult.weeklyUsage
+      }
+    });
+
+  } catch (err) {
+    console.error("Summary images error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    
+    if (message.includes("429") || message.includes("rate")) {
+      return res.status(429).json({
+        success: false,
+        error: "RATE_LIMIT",
+        message: "请求过于频繁，请稍后再试"
+      });
+    }
+    
+    return res.status(500).json({
+      success: false,
+      error: "SUMMARY_FAILED",
+      message
+    });
+  }
+});
+
+// ===========================================
+// API 端点：获取智能小结配额状态
+// ===========================================
+app.get("/api/summary/quota", async (req, res) => {
+  const { userId, userLevel } = req.query;
+  
+  const config = await getSummaryConfig();
+  const users = await getSummaryUsers();
+
+  // 根据用户等级获取限额
+  let weeklyLimit, maxImages;
+  switch (userLevel) {
+    case 'king':
+      weeklyLimit = config.kingWeeklyLimit;
+      maxImages = config.maxImagesKing;
+      break;
+    case 'pro':
+      weeklyLimit = config.proWeeklyLimit;
+      maxImages = config.maxImagesPro;
+      break;
+    default:
+      weeklyLimit = config.normalWeeklyLimit;
+      maxImages = config.maxImagesNormal;
+  }
+
+  if (!userId || !users[userId]) {
+    return res.json({
+      success: true,
+      data: {
+        weeklyUsage: 0,
+        weeklyLimit,
+        remaining: weeklyLimit,
+        maxImages,
+        totalUsage: 0
+      }
+    });
+  }
+
+  const user = users[userId];
+  const thisWeek = getCurrentWeekId();
+  const weeklyUsage = (user.currentWeek === thisWeek) ? user.weeklyUsage : 0;
+
+  res.json({
+    success: true,
+    data: {
+      weeklyUsage,
+      weeklyLimit,
+      remaining: Math.max(0, weeklyLimit - weeklyUsage),
+      maxImages,
+      totalUsage: user.totalUsage || 0
+    }
+  });
+});
+
+// ===========================================
+// API 端点：获取智能小结统计（管理后台用）
+// ===========================================
+app.get("/api/admin/summary/stats", verifyAdminToken, async (req, res) => {
+  const config = await getSummaryConfig();
+  const users = await getSummaryUsers();
+  
+  res.json({
+    success: true,
+    stats: summaryApiStats,
+    config,
+    userCount: Object.keys(users).length
+  });
+});
+
+// ===========================================
+// API 端点：更新智能小结配置（管理后台用）
+// ===========================================
+app.put("/api/admin/summary/config", verifyAdminToken, async (req, res) => {
+  const newConfig = req.body || {};
+  
+  // 验证配置值
+  const validKeys = [
+    'normalWeeklyLimit', 'proWeeklyLimit', 'kingWeeklyLimit',
+    'maxImagesNormal', 'maxImagesPro', 'maxImagesKing'
+  ];
+  
+  const sanitizedConfig = {};
+  for (const key of validKeys) {
+    if (typeof newConfig[key] === 'number' && newConfig[key] >= 0) {
+      sanitizedConfig[key] = newConfig[key];
+    }
+  }
+
+  const currentConfig = await getSummaryConfig();
+  const mergedConfig = { ...currentConfig, ...sanitizedConfig };
+  
+  const saved = await saveSummaryConfig(mergedConfig);
+  
+  if (saved) {
+    console.log(`[Admin] Updated summary config:`, sanitizedConfig);
+    res.json({
+      success: true,
+      message: "配置已更新",
+      config: mergedConfig
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: "保存配置失败"
+    });
+  }
+});
+
+// ===========================================
+// API 端点：获取智能小结提示词槽位（管理后台用）
+// ===========================================
+app.get("/api/admin/summary/prompts", verifyAdminToken, async (req, res) => {
+  const prompts = await getSummaryPrompts();
+  res.json({
+    success: true,
+    prompts
+  });
+});
+
+// ===========================================
+// API 端点：更新智能小结提示词槽位（管理后台用）
+// ===========================================
+app.put("/api/admin/summary/prompts", verifyAdminToken, async (req, res) => {
+  const { slot, name, prompt, description } = req.body || {};
+  
+  // 验证槽位
+  if (!slot || !['slot1', 'slot2', 'slot3', 'slot4'].includes(slot)) {
+    return res.status(400).json({
+      success: false,
+      message: "无效的槽位，必须是 slot1-slot4"
+    });
+  }
+
+  const currentPrompts = await getSummaryPrompts();
+  currentPrompts[slot] = {
+    name: name || currentPrompts[slot].name,
+    prompt: prompt !== undefined ? prompt : currentPrompts[slot].prompt,
+    description: description || currentPrompts[slot].description
+  };
+  
+  const saved = await saveSummaryPrompts(currentPrompts);
+  
+  if (saved) {
+    console.log(`[Admin] Updated summary prompt ${slot}:`, name);
+    res.json({
+      success: true,
+      message: `${slot} 提示词已更新`,
+      prompts: currentPrompts
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: "保存提示词失败"
+    });
+  }
+});
+
+// ===========================================
 // API 端点：获取调用统计
 // ===========================================
 app.get("/api/stats", (req, res) => {
@@ -1232,10 +2006,17 @@ app.get("/api/stats", (req, res) => {
   res.json({
     success: true,
     stats: {
+      // OCR 识别统计
       imageAnalyze: apiCallStats.imageAnalyze,
       imageBase64Analyze: apiCallStats.imageBase64Analyze,
       excelAnalyze: apiCallStats.excelAnalyze,
       totalCalls: apiCallStats.totalCalls,
+      // 智能小结统计
+      summary: {
+        textSummary: summaryApiStats.textSummary,
+        imageSummary: summaryApiStats.imageSummary,
+        totalCalls: summaryApiStats.totalCalls
+      },
       uptime: {
         hours: uptimeHours,
         minutes: uptimeMinutes,
