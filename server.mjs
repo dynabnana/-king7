@@ -1523,14 +1523,18 @@ const callGeminiAI = async (model, messages, maxTokens = 2000) => {
 
 // 智能小结 AI 调用（优先七牛云，降级到 Gemini）
 const callSummaryAI = async (model, messages, maxTokens = 2000) => {
+  console.log(`[Summary] API config: QINIU=${!!QINIU_AI_API_KEY}, GEMINI=${!!SUMMARY_GEMINI_API_KEY}`);
+  
   // 优先使用七牛云
   if (QINIU_AI_API_KEY) {
     try {
+      console.log('[Summary] Trying Qiniu AI...');
       return await callQiniuAI(model, messages, maxTokens);
     } catch (err) {
-      console.error('[Summary] Qiniu AI failed, trying Gemini:', err.message);
+      console.error('[Summary] Qiniu AI failed:', err.message);
       // 七牛云失败，尝试 Gemini
       if (SUMMARY_GEMINI_API_KEY) {
+        console.log('[Summary] Falling back to Gemini...');
         return await callGeminiAI(model, messages, maxTokens);
       }
       throw err;
@@ -1539,6 +1543,7 @@ const callSummaryAI = async (model, messages, maxTokens = 2000) => {
   
   // 如果七牛云未配置，使用 Gemini
   if (SUMMARY_GEMINI_API_KEY) {
+    console.log('[Summary] Using Gemini API (Qiniu not configured)...');
     return await callGeminiAI(model, messages, maxTokens);
   }
   
