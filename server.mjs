@@ -1681,7 +1681,17 @@ app.post("/api/summary/text", async (req, res) => {
     console.error("Summary text error:", err);
     const message = err instanceof Error ? err.message : String(err);
     
-    if (message.includes("429") || message.includes("rate")) {
+    // API 未配置
+    if (message.includes("No AI API configured")) {
+      return res.status(503).json({
+        success: false,
+        error: "API_NOT_CONFIGURED",
+        message: "智能小结服务暂未配置，请联系管理员"
+      });
+    }
+    
+    // 频率限制（必须明确包含429状态码或rate limit关键词）
+    if (message.includes("429") || message.toLowerCase().includes("rate limit")) {
       return res.status(429).json({
         success: false,
         error: "RATE_LIMIT",
@@ -1692,7 +1702,7 @@ app.post("/api/summary/text", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "SUMMARY_FAILED",
-      message
+      message: message || "AI分析失败，请重试"
     });
   }
 });
@@ -1822,7 +1832,17 @@ app.post("/api/summary/images", async (req, res) => {
     console.error("Summary images error:", err);
     const message = err instanceof Error ? err.message : String(err);
     
-    if (message.includes("429") || message.includes("rate")) {
+    // API 未配置
+    if (message.includes("No AI API configured")) {
+      return res.status(503).json({
+        success: false,
+        error: "API_NOT_CONFIGURED",
+        message: "智能小结服务暂未配置，请联系管理员"
+      });
+    }
+    
+    // 频率限制
+    if (message.includes("429") || message.toLowerCase().includes("rate limit")) {
       return res.status(429).json({
         success: false,
         error: "RATE_LIMIT",
@@ -1833,7 +1853,7 @@ app.post("/api/summary/images", async (req, res) => {
     return res.status(500).json({
       success: false,
       error: "SUMMARY_FAILED",
-      message
+      message: message || "AI分析失败，请重试"
     });
   }
 });
