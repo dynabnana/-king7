@@ -1893,109 +1893,6 @@ app.get("/api/summary/quota", async (req, res) => {
 });
 
 // ===========================================
-// API 端点：获取智能小结统计（管理后台用）
-// ===========================================
-app.get("/api/admin/summary/stats", verifyAdminToken, async (req, res) => {
-  const config = await getSummaryConfig();
-  const users = await getSummaryUsers();
-  
-  res.json({
-    success: true,
-    stats: summaryApiStats,
-    config,
-    userCount: Object.keys(users).length
-  });
-});
-
-// ===========================================
-// API 端点：更新智能小结配置（管理后台用）
-// ===========================================
-app.put("/api/admin/summary/config", verifyAdminToken, async (req, res) => {
-  const newConfig = req.body || {};
-  
-  // 验证配置值
-  const validKeys = [
-    'normalWeeklyLimit', 'proWeeklyLimit', 'kingWeeklyLimit',
-    'maxImagesNormal', 'maxImagesPro', 'maxImagesKing'
-  ];
-  
-  const sanitizedConfig = {};
-  for (const key of validKeys) {
-    if (typeof newConfig[key] === 'number' && newConfig[key] >= 0) {
-      sanitizedConfig[key] = newConfig[key];
-    }
-  }
-
-  const currentConfig = await getSummaryConfig();
-  const mergedConfig = { ...currentConfig, ...sanitizedConfig };
-  
-  const saved = await saveSummaryConfig(mergedConfig);
-  
-  if (saved) {
-    console.log(`[Admin] Updated summary config:`, sanitizedConfig);
-    res.json({
-      success: true,
-      message: "配置已更新",
-      config: mergedConfig
-    });
-  } else {
-    res.status(500).json({
-      success: false,
-      message: "保存配置失败"
-    });
-  }
-});
-
-// ===========================================
-// API 端点：获取智能小结提示词槽位（管理后台用）
-// ===========================================
-app.get("/api/admin/summary/prompts", verifyAdminToken, async (req, res) => {
-  const prompts = await getSummaryPrompts();
-  res.json({
-    success: true,
-    prompts
-  });
-});
-
-// ===========================================
-// API 端点：更新智能小结提示词槽位（管理后台用）
-// ===========================================
-app.put("/api/admin/summary/prompts", verifyAdminToken, async (req, res) => {
-  const { slot, name, prompt, description } = req.body || {};
-  
-  // 验证槽位
-  if (!slot || !['slot1', 'slot2', 'slot3', 'slot4'].includes(slot)) {
-    return res.status(400).json({
-      success: false,
-      message: "无效的槽位，必须是 slot1-slot4"
-    });
-  }
-
-  const currentPrompts = await getSummaryPrompts();
-  currentPrompts[slot] = {
-    name: name || currentPrompts[slot].name,
-    prompt: prompt !== undefined ? prompt : currentPrompts[slot].prompt,
-    description: description || currentPrompts[slot].description
-  };
-  
-  const saved = await saveSummaryPrompts(currentPrompts);
-  
-  if (saved) {
-    console.log(`[Admin] Updated summary prompt ${slot}:`, name);
-    res.json({
-      success: true,
-      message: `${slot} 提示词已更新`,
-      prompts: currentPrompts
-    });
-  } else {
-    res.status(500).json({
-      success: false,
-      message: "保存提示词失败"
-    });
-  }
-});
-
-// ===========================================
 // API 端点：获取调用统计
 // ===========================================
 app.get("/api/stats", (req, res) => {
@@ -2107,6 +2004,109 @@ const verifyAdminToken = (req, res, next) => {
     return res.status(401).json({ success: false, message: "令牌验证失败" });
   }
 };
+
+// ===========================================
+// API 端点：获取智能小结统计（管理后台用）
+// ===========================================
+app.get("/api/admin/summary/stats", verifyAdminToken, async (req, res) => {
+  const config = await getSummaryConfig();
+  const users = await getSummaryUsers();
+  
+  res.json({
+    success: true,
+    stats: summaryApiStats,
+    config,
+    userCount: Object.keys(users).length
+  });
+});
+
+// ===========================================
+// API 端点：更新智能小结配置（管理后台用）
+// ===========================================
+app.put("/api/admin/summary/config", verifyAdminToken, async (req, res) => {
+  const newConfig = req.body || {};
+  
+  // 验证配置值
+  const validKeys = [
+    'normalWeeklyLimit', 'proWeeklyLimit', 'kingWeeklyLimit',
+    'maxImagesNormal', 'maxImagesPro', 'maxImagesKing'
+  ];
+  
+  const sanitizedConfig = {};
+  for (const key of validKeys) {
+    if (typeof newConfig[key] === 'number' && newConfig[key] >= 0) {
+      sanitizedConfig[key] = newConfig[key];
+    }
+  }
+
+  const currentConfig = await getSummaryConfig();
+  const mergedConfig = { ...currentConfig, ...sanitizedConfig };
+  
+  const saved = await saveSummaryConfig(mergedConfig);
+  
+  if (saved) {
+    console.log(`[Admin] Updated summary config:`, sanitizedConfig);
+    res.json({
+      success: true,
+      message: "配置已更新",
+      config: mergedConfig
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: "保存配置失败"
+    });
+  }
+});
+
+// ===========================================
+// API 端点：获取智能小结提示词槽位（管理后台用）
+// ===========================================
+app.get("/api/admin/summary/prompts", verifyAdminToken, async (req, res) => {
+  const prompts = await getSummaryPrompts();
+  res.json({
+    success: true,
+    prompts
+  });
+});
+
+// ===========================================
+// API 端点：更新智能小结提示词槽位（管理后台用）
+// ===========================================
+app.put("/api/admin/summary/prompts", verifyAdminToken, async (req, res) => {
+  const { slot, name, prompt, description } = req.body || {};
+  
+  // 验证槽位
+  if (!slot || !['slot1', 'slot2', 'slot3', 'slot4'].includes(slot)) {
+    return res.status(400).json({
+      success: false,
+      message: "无效的槽位，必须是 slot1-slot4"
+    });
+  }
+
+  const currentPrompts = await getSummaryPrompts();
+  currentPrompts[slot] = {
+    name: name || currentPrompts[slot].name,
+    prompt: prompt !== undefined ? prompt : currentPrompts[slot].prompt,
+    description: description || currentPrompts[slot].description
+  };
+  
+  const saved = await saveSummaryPrompts(currentPrompts);
+  
+  if (saved) {
+    console.log(`[Admin] Updated summary prompt ${slot}:`, name);
+    res.json({
+      success: true,
+      message: `${slot} 提示词已更新`,
+      prompts: currentPrompts
+    });
+  } else {
+    res.status(500).json({
+      success: false,
+      message: "保存提示词失败"
+    });
+  }
+});
 
 // ===========================================
 // 管理后台 API - 获取使用记录（支持用户搜索）
