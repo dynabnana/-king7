@@ -1368,6 +1368,23 @@ const checkAndConsumeSummaryQuota = async (userId, nickname, userLevel = 'normal
     return { allowed: false, reason: "no_user_id", remaining: 0 };
   }
 
+  // 【重要】首先从 OCR 系统的用户数据中读取用户等级
+  // 这样 King 用户（isUnlimited）和 Pro 用户在智能小结中也能享受对应权益
+  const ocrUsers = await getQuotaUsers();
+  const ocrUser = ocrUsers[userId];
+  
+  // 确定实际的用户等级（OCR系统的等级优先于传入的参数）
+  let actualUserLevel = userLevel;
+  if (ocrUser) {
+    if (ocrUser.isUnlimited) {
+      actualUserLevel = 'king';
+      console.log(`[Summary] User ${userId} is KING (isUnlimited from OCR system)`);
+    } else if (ocrUser.isPro) {
+      actualUserLevel = 'pro';
+      console.log(`[Summary] User ${userId} is Pro (isPro from OCR system)`);
+    }
+  }
+
   const config = await getSummaryConfig();
   const users = await getSummaryUsers();
 
@@ -1377,7 +1394,7 @@ const checkAndConsumeSummaryQuota = async (userId, nickname, userLevel = 'normal
       weeklyUsage: 0,
       currentWeek: getCurrentWeekId(),
       totalUsage: 0,
-      nickname: nickname || "未命名"
+      nickname: nickname || ocrUser?.nickname || "未命名"
     };
   }
 
@@ -1393,7 +1410,7 @@ const checkAndConsumeSummaryQuota = async (userId, nickname, userLevel = 'normal
 
   // 根据用户等级获取每周限额
   let weeklyLimit;
-  switch (userLevel) {
+  switch (actualUserLevel) {
     case 'king':
       weeklyLimit = config.kingWeeklyLimit;
       break;
@@ -1411,7 +1428,8 @@ const checkAndConsumeSummaryQuota = async (userId, nickname, userLevel = 'normal
       reason: "quota_exceeded", 
       remaining: 0,
       weeklyLimit,
-      weeklyUsage: user.weeklyUsage
+      weeklyUsage: user.weeklyUsage,
+      userLevel: actualUserLevel
     };
   }
 
@@ -1425,7 +1443,8 @@ const checkAndConsumeSummaryQuota = async (userId, nickname, userLevel = 'normal
     reason: "success", 
     remaining: weeklyLimit - user.weeklyUsage,
     weeklyLimit,
-    weeklyUsage: user.weeklyUsage
+    weeklyUsage: user.weeklyUsage,
+    userLevel: actualUserLevel
   };
 };
 
