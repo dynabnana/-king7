@@ -721,6 +721,88 @@
             </div>
           </div>
 
+          <!-- OCR API 配置面板 -->
+          <div class="action-panel" style="background: linear-gradient(to right, #f0fdf4, white); margin-bottom: 1rem;">
+            <div style="flex:1;">
+              <h3 class="panel-title" style="color: #15803d;">🔍 OCR API 配置</h3>
+              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">选择OCR识别使用的API提供商和各用户等级的模型</p>
+              
+              <!-- API源开关 -->
+              <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer;" id="ocrProviderGeminiLabel">
+                  <input type="radio" name="ocrApiProvider" value="gemini" id="ocrProviderGemini" onchange="onOcrApiProviderChange()" checked>
+                  <span style="font-weight: 500;">🌟 Gemini</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer;" id="ocrProviderIflowLabel">
+                  <input type="radio" name="ocrApiProvider" value="iflow" id="ocrProviderIflow" onchange="onOcrApiProviderChange()">
+                  <span style="font-weight: 500;">💎 iFlow</span>
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">(免费)</span>
+                </label>
+              </div>
+              
+              <!-- Gemini OCR 模型选择 -->
+              <div id="geminiOcrModelsSection">
+                <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                  <div class="form-group" style="min-width: 160px;">
+                    <label style="font-size: 0.75rem;">👤 普通用户</label>
+                    <select id="geminiNormalOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
+                      <option value="gemini-2.5-flash-lite" selected>Gemini 2.5 Lite</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="min-width: 160px;">
+                    <label style="font-size: 0.75rem;">⭐ Pro用户</label>
+                    <select id="geminiProOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
+                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Lite</option>
+                      <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
+                      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="min-width: 160px;">
+                    <label style="font-size: 0.75rem;">💎 KING用户</label>
+                    <select id="geminiKingOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
+                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Lite</option>
+                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
+                      <option value="gemini-3-flash-preview" selected>Gemini 3 Flash</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <!-- iFlow OCR 模型选择 -->
+              <div id="iflowOcrModelsSection" style="display: none;">
+                <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                  <div class="form-group" style="min-width: 160px;">
+                    <label style="font-size: 0.75rem;">👤 普通用户</label>
+                    <select id="iflowNormalOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
+                      <option value="qwen3-vl-plus" selected>Qwen3 VL Plus</option>
+                      <option value="glm-4.6">GLM-4.6</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="min-width: 160px;">
+                    <label style="font-size: 0.75rem;">⭐ Pro用户</label>
+                    <select id="iflowProOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
+                      <option value="qwen3-vl-plus" selected>Qwen3 VL Plus</option>
+                      <option value="glm-4.6">GLM-4.6</option>
+                    </select>
+                  </div>
+                  <div class="form-group" style="min-width: 160px;">
+                    <label style="font-size: 0.75rem;">💎 KING用户</label>
+                    <select id="iflowKingOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
+                      <option value="qwen3-vl-plus">Qwen3 VL Plus</option>
+                      <option value="glm-4.6" selected>GLM-4.6</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+              
+              <div style="margin-top: 0.75rem;">
+                <span id="ocrConfigStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              </div>
+            </div>
+          </div>
+
           <div class="action-panel">
             <div class="form-group" style="flex: 2;">
               <label>查找用户</label>
@@ -873,7 +955,7 @@
                         <select id="geminiNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
                           <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
                           <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                          <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                          <option value="gemini-3-flash-preview">Gemini 3 Flash (最新预览)</option>
                         </select>
                       </div>
                       <div class="form-group" style="min-width: 180px;">
@@ -881,7 +963,7 @@
                         <select id="geminiProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
                           <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
                           <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (性能均衡)</option>
-                          <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                          <option value="gemini-3-flash-preview">Gemini 3 Flash (最新预览)</option>
                         </select>
                       </div>
                       <div class="form-group" style="min-width: 180px;">
@@ -889,7 +971,7 @@
                         <select id="geminiKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
                           <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
                           <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                          <option value="gemini-3-flash" selected>Gemini 3 Flash (能力最强)</option>
+                          <option value="gemini-3-flash-preview" selected>Gemini 3 Flash (最新预览)</option>
                         </select>
                       </div>
                     </div>
@@ -1463,6 +1545,25 @@
           quotaConfig = data.config;
           document.getElementById('normalWeeklyLimit').value = quotaConfig.normalWeeklyLimit;
           document.getElementById('proWeeklyLimit').value = quotaConfig.proWeeklyLimit;
+          
+          // 更新OCR API配置
+          const ocrProvider = quotaConfig.ocrApiProvider || 'gemini';
+          if (ocrProvider === 'iflow') {
+            document.getElementById('ocrProviderIflow').checked = true;
+          } else {
+            document.getElementById('ocrProviderGemini').checked = true;
+          }
+          onOcrApiProviderChange();
+          
+          // 更新 Gemini OCR 模型
+          document.getElementById('geminiNormalOcrModel').value = quotaConfig.geminiNormalOcrModel || 'gemini-2.5-flash-lite';
+          document.getElementById('geminiProOcrModel').value = quotaConfig.geminiProOcrModel || 'gemini-2.5-flash';
+          document.getElementById('geminiKingOcrModel').value = quotaConfig.geminiKingOcrModel || 'gemini-3-flash-preview';
+          
+          // 更新 iFlow OCR 模型
+          document.getElementById('iflowNormalOcrModel').value = quotaConfig.iflowNormalOcrModel || 'qwen3-vl-plus';
+          document.getElementById('iflowProOcrModel').value = quotaConfig.iflowProOcrModel || 'qwen3-vl-plus';
+          document.getElementById('iflowKingOcrModel').value = quotaConfig.iflowKingOcrModel || 'glm-4.6';
         }
         updateUserStats();
         filterByType(currentUserFilter);
@@ -1473,6 +1574,10 @@
       const normalLimit = document.getElementById('normalWeeklyLimit').value;
       const proLimit = document.getElementById('proWeeklyLimit').value;
       const statusEl = document.getElementById('configStatus');
+      const ocrStatusEl = document.getElementById('ocrConfigStatus');
+      
+      // OCR API配置
+      const ocrApiProvider = document.getElementById('ocrProviderIflow').checked ? 'iflow' : 'gemini';
 
       try {
         const res = await fetch('/api/admin/quota/config', {
@@ -1482,8 +1587,22 @@
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
+            // 配额设置
             normalWeeklyLimit: normalLimit,
-            proWeeklyLimit: proLimit
+            proWeeklyLimit: proLimit,
+            
+            // OCR API配置
+            ocrApiProvider: ocrApiProvider,
+            
+            // Gemini OCR 模型
+            geminiNormalOcrModel: document.getElementById('geminiNormalOcrModel').value,
+            geminiProOcrModel: document.getElementById('geminiProOcrModel').value,
+            geminiKingOcrModel: document.getElementById('geminiKingOcrModel').value,
+            
+            // iFlow OCR 模型
+            iflowNormalOcrModel: document.getElementById('iflowNormalOcrModel').value,
+            iflowProOcrModel: document.getElementById('iflowProOcrModel').value,
+            iflowKingOcrModel: document.getElementById('iflowKingOcrModel').value
           })
         });
 
@@ -1491,19 +1610,49 @@
         if (data.success) {
           statusEl.textContent = '✅ 已保存';
           statusEl.style.color = '#059669';
+          ocrStatusEl.textContent = '✅ OCR配置已保存';
+          ocrStatusEl.style.color = '#059669';
           // 刷新用户列表以显示新的限额
           loadUsers();
           // 3秒后清除状态
           setTimeout(() => {
             statusEl.textContent = '';
+            ocrStatusEl.textContent = '';
           }, 3000);
         } else {
           statusEl.textContent = '❌ ' + (data.message || '保存失败');
           statusEl.style.color = '#dc2626';
+          ocrStatusEl.textContent = '❌ 保存失败';
+          ocrStatusEl.style.color = '#dc2626';
         }
       } catch (err) {
         statusEl.textContent = '❌ 保存失败: ' + err.message;
         statusEl.style.color = '#dc2626';
+        ocrStatusEl.textContent = '❌ 保存失败';
+        ocrStatusEl.style.color = '#dc2626';
+      }
+    }
+
+    // OCR API源切换处理
+    function onOcrApiProviderChange() {
+      const isIflow = document.getElementById('ocrProviderIflow').checked;
+      
+      document.getElementById('geminiOcrModelsSection').style.display = isIflow ? 'none' : 'block';
+      document.getElementById('iflowOcrModelsSection').style.display = isIflow ? 'block' : 'none';
+      
+      const geminiLabel = document.getElementById('ocrProviderGeminiLabel');
+      const iflowLabel = document.getElementById('ocrProviderIflowLabel');
+      
+      if (isIflow) {
+        geminiLabel.style.borderColor = 'var(--border)';
+        geminiLabel.style.background = 'white';
+        iflowLabel.style.borderColor = '#15803d';
+        iflowLabel.style.background = '#f0fdf4';
+      } else {
+        geminiLabel.style.borderColor = 'var(--primary)';
+        geminiLabel.style.background = 'var(--primary-light)';
+        iflowLabel.style.borderColor = 'var(--border)';
+        iflowLabel.style.background = 'white';
       }
     }
 

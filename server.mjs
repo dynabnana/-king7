@@ -471,10 +471,43 @@ const saveQuotaCodes = async (codes) => {
 };
 
 // ===== 全局配额配置 =====
+// ========== OCR iFlow 配置 ==========
+// OCR 与智能小结共用 IFLOW_AI_API_KEY（在智能小结部分定义）
+
+// Gemini OCR 模型选项
+const GEMINI_OCR_MODEL_OPTIONS = {
+  'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费' },
+  'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费' },
+  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: 'KING专属，最新模型' }
+};
+
+// iFlow OCR 模型选项
+const IFLOW_OCR_MODEL_OPTIONS = {
+  'glm-4.6': { name: 'GLM-4.6', description: '智谱清言，视觉理解强' },
+  'qwen3-vl-plus': { name: 'Qwen3 VL Plus', description: '通义千问视觉版，推荐使用' }
+};
+
+// 合并所有OCR模型选项（用于验证）
+const ALL_OCR_MODEL_OPTIONS = { ...GEMINI_OCR_MODEL_OPTIONS, ...IFLOW_OCR_MODEL_OPTIONS };
+
 // 默认配置：普通用户每周5次，Pro用户每周10次
 const DEFAULT_QUOTA_CONFIG = {
+  // 配额设置
   normalWeeklyLimit: 5,  // 普通用户每周限额
-  proWeeklyLimit: 10     // Pro用户每周限额
+  proWeeklyLimit: 10,    // Pro用户每周限额
+  
+  // OCR API源选择: 'gemini' 或 'iflow'
+  ocrApiProvider: 'gemini',
+  
+  // Gemini OCR 各用户等级使用的模型
+  geminiNormalOcrModel: 'gemini-2.5-flash-lite',
+  geminiProOcrModel: 'gemini-2.5-flash',
+  geminiKingOcrModel: 'gemini-3-flash-preview',
+  
+  // iFlow OCR 各用户等级使用的模型
+  iflowNormalOcrModel: 'qwen3-vl-plus',
+  iflowProOcrModel: 'qwen3-vl-plus',
+  iflowKingOcrModel: 'glm-4.6'
 };
 
 // 获取全局配额配置
@@ -1035,6 +1068,60 @@ app.post("/api/analyze/image", upload.single("file"), async (req, res) => {
 });
 
 // ===========================================
+// OCR iFlow API 调用函数（与智能小结共用 IFLOW_AI_API_KEY）
+// ===========================================
+const callOcrIflowAI = async (model, base64Data, mimeType, systemPrompt) => {
+  const modelId = model || 'qwen3-vl-plus';
+  
+  console.log(`[OCR] Calling iFlow AI with model: ${modelId}`);
+
+  // iFlow 使用 OpenAI 兼容格式，图像通过 base64 URL 传递
+  const imageUrl = `data:${mimeType || 'image/jpeg'};base64,${base64Data}`;
+  
+  const response = await fetch(`${IFLOW_AI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${IFLOW_AI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: [
+        { 
+          role: "system", 
+          content: systemPrompt 
+        },
+        { 
+          role: "user", 
+          content: [
+            { type: "image_url", image_url: { url: imageUrl } },
+            { type: "text", text: "Extract medical data from this image." }
+          ]
+        }
+      ],
+      max_tokens: 4000,
+      temperature: 0.1,
+      response_format: { type: "json_object" }
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[OCR] iFlow AI error: ${response.status}`, errorText);
+    throw new Error(`iFlow OCR API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content || "";
+  
+  return {
+    content: content,
+    usage: data.usage || {},
+    provider: 'iflow'
+  };
+};
+
+// ===========================================
 // API 端点：图片识别 - 用于小程序（支持 base64 JSON）
 // ===========================================
 app.post("/api/analyze/image-base64", async (req, res) => {
@@ -1068,40 +1155,91 @@ app.post("/api/analyze/image-base64", async (req, res) => {
       cleanBase64 = base64.split(",")[1];
     }
 
-    const apiKey = getApiKey(req);
-    const client = await createClient(apiKey);
+    // 获取OCR配置，确定API源和用户等级对应的模型
+    const config = await getQuotaConfig();
+    const ocrApiProvider = config.ocrApiProvider || 'gemini';
+    
+    // 确定用户等级
+    let userLevel = 'normal';
+    if (quotaResult.isUnlimited) {
+      userLevel = 'king';
+    } else if (quotaResult.isPro) {
+      userLevel = 'pro';
+    }
+    
+    // 根据API源和用户等级选择模型
+    let modelToUse;
+    if (ocrApiProvider === 'iflow') {
+      // iFlow 模型
+      switch (userLevel) {
+        case 'king':
+          modelToUse = config.iflowKingOcrModel || 'glm-4.6';
+          break;
+        case 'pro':
+          modelToUse = config.iflowProOcrModel || 'qwen3-vl-plus';
+          break;
+        default:
+          modelToUse = config.iflowNormalOcrModel || 'qwen3-vl-plus';
+      }
+    } else {
+      // Gemini 模型（默认）
+      switch (userLevel) {
+        case 'king':
+          modelToUse = config.geminiKingOcrModel || 'gemini-3-flash-preview';
+          break;
+        case 'pro':
+          modelToUse = config.geminiProOcrModel || 'gemini-2.5-flash';
+          break;
+        default:
+          modelToUse = config.geminiNormalOcrModel || 'gemini-2.5-flash-lite';
+      }
+    }
+    
+    console.log(`[OCR] User ${nickname || userId || 'anonymous'} (${userLevel}) using ${ocrApiProvider}/${modelToUse}`);
 
-    // KING 用户使用 Gemini 3 Flash 模型
-    const modelToUse = quotaResult.isUnlimited ? KING_USER_MODEL : getModelName(req);
-    console.log(`[image-base64] User ${nickname || userId || 'anonymous'} using model: ${modelToUse} (isUnlimited: ${quotaResult.isUnlimited})`);
+    let data;
+    
+    if (ocrApiProvider === 'iflow') {
+      // 使用 iFlow API（与智能小结共用）
+      if (!IFLOW_AI_API_KEY) {
+        throw new Error("iFlow API not configured. Set IFLOW_AI_API_KEY environment variable.");
+      }
+      
+      const result = await callOcrIflowAI(modelToUse, cleanBase64, mimeType, IMAGE_SYSTEM_PROMPT);
+      data = safeJsonParse(result.content, "image-base64-iflow");
+    } else {
+      // 使用 Gemini API（默认）
+      const apiKey = getApiKey(req);
+      const client = await createClient(apiKey);
 
-    const response = await client.models.generateContent({
-      model: modelToUse,
-      contents: {
-        parts: [
-          {
-            inlineData: {
-              mimeType: mimeType || "image/jpeg",
-              data: cleanBase64,
+      const response = await client.models.generateContent({
+        model: modelToUse,
+        contents: {
+          parts: [
+            {
+              inlineData: {
+                mimeType: mimeType || "image/jpeg",
+                data: cleanBase64,
+              },
             },
-          },
-          { text: "Extract medical data." },
-        ],
-      },
-      config: {
-        systemInstruction: IMAGE_SYSTEM_PROMPT,
-        responseMimeType: "application/json",
-      },
-    });
+            { text: "Extract medical data." },
+          ],
+        },
+        config: {
+          systemInstruction: IMAGE_SYSTEM_PROMPT,
+          responseMimeType: "application/json",
+        },
+      });
 
-    const data = safeJsonParse(response.text, "image-base64");
+      data = safeJsonParse(response.text, "image-base64");
+    }
 
     // 检查是否解析失败
     if (data.error === "JSON_PARSE_FAILED") {
       console.error("[image-base64] JSON parse failed, raw preview:", data.rawTextPreview);
       return res.status(500).json({
         error: "JSON_PARSE_FAILED",
-        message: "Failed to parse Gemini response",
+        message: "Failed to parse AI response",
         detail: data.parseError
       });
     }
@@ -1112,7 +1250,9 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     // 记录用户使用（小程序端需要传递 nickname 字段）
     await logUserUsage(req, "image-base64", {
       itemsCount: data.items?.length || 0,
-      title: data.title || null
+      title: data.title || null,
+      apiProvider: ocrApiProvider,
+      model: modelToUse
     });
 
     return res.json(data);
@@ -1240,7 +1380,8 @@ const SUMMARY_GEMINI_API_KEY = process.env.SUMMARY_GEMINI_API_KEY || "";
 // ========== 智能小结模型配置 ==========
 // Gemini 模型选项列表
 const GEMINI_MODEL_OPTIONS = {
-  'gemini-3-flash': { name: 'Gemini 3 Flash', description: '最新模型，能力最强' },
+  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: '最新预览版，能力最强' },
+  'gemini-3-flash': { name: 'Gemini 3 Flash (旧)', description: '别名映射到2.0' },
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '性能均衡，推荐使用' },
   'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', description: '经典稳定版本' }
 };
@@ -1256,6 +1397,7 @@ const SUMMARY_MODEL_OPTIONS = { ...GEMINI_MODEL_OPTIONS, ...IFLOW_MODEL_OPTIONS 
 
 // 七牛云 API 映射的模型名（仅Gemini模型）
 const SUMMARY_MODELS = {
+  'gemini-3-flash-preview': 'gemini-3-flash-preview',
   'gemini-3-flash': 'gemini-2.0-flash-001',
   'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
   'gemini-2.0-flash': 'gemini-2.0-flash-001'
@@ -1263,6 +1405,7 @@ const SUMMARY_MODELS = {
 
 // Gemini API 直连时使用的模型名
 const GEMINI_DIRECT_MODELS = {
+  'gemini-3-flash-preview': 'gemini-3-flash-preview',
   'gemini-3-flash': 'gemini-2.0-flash',
   'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
   'gemini-2.0-flash': 'gemini-2.0-flash'
@@ -1292,7 +1435,7 @@ const DEFAULT_SUMMARY_QUOTA_CONFIG = {
   // Gemini 各用户等级使用的模型
   geminiNormalModel: 'gemini-2.0-flash',
   geminiProModel: 'gemini-2.5-flash',
-  geminiKingModel: 'gemini-3-flash',
+  geminiKingModel: 'gemini-3-flash-preview',
   
   // iFlow 各用户等级使用的模型
   iflowNormalModel: 'qwen3-max',
@@ -2724,7 +2867,12 @@ app.get("/api/admin/quota/config", verifyAdminToken, async (req, res) => {
 
 // [Admin] 更新全局配额配置
 app.put("/api/admin/quota/config", verifyAdminToken, async (req, res) => {
-  const { normalWeeklyLimit, proWeeklyLimit } = req.body;
+  const { 
+    normalWeeklyLimit, proWeeklyLimit,
+    ocrApiProvider,
+    geminiNormalOcrModel, geminiProOcrModel, geminiKingOcrModel,
+    iflowNormalOcrModel, iflowProOcrModel, iflowKingOcrModel
+  } = req.body;
 
   // 验证参数
   const newNormalLimit = parseInt(normalWeeklyLimit);
@@ -2737,18 +2885,46 @@ app.put("/api/admin/quota/config", verifyAdminToken, async (req, res) => {
     return res.status(400).json({ success: false, message: "Pro用户每周限额必须在0-100之间" });
   }
 
+  // 构建新配置
   const newConfig = {
     normalWeeklyLimit: newNormalLimit,
     proWeeklyLimit: newProLimit
   };
+  
+  // OCR API源选择
+  if (ocrApiProvider && ['gemini', 'iflow'].includes(ocrApiProvider)) {
+    newConfig.ocrApiProvider = ocrApiProvider;
+  }
+  
+  // Gemini OCR 模型配置
+  if (geminiNormalOcrModel && GEMINI_OCR_MODEL_OPTIONS[geminiNormalOcrModel]) {
+    newConfig.geminiNormalOcrModel = geminiNormalOcrModel;
+  }
+  if (geminiProOcrModel && GEMINI_OCR_MODEL_OPTIONS[geminiProOcrModel]) {
+    newConfig.geminiProOcrModel = geminiProOcrModel;
+  }
+  if (geminiKingOcrModel && GEMINI_OCR_MODEL_OPTIONS[geminiKingOcrModel]) {
+    newConfig.geminiKingOcrModel = geminiKingOcrModel;
+  }
+  
+  // iFlow OCR 模型配置
+  if (iflowNormalOcrModel && IFLOW_OCR_MODEL_OPTIONS[iflowNormalOcrModel]) {
+    newConfig.iflowNormalOcrModel = iflowNormalOcrModel;
+  }
+  if (iflowProOcrModel && IFLOW_OCR_MODEL_OPTIONS[iflowProOcrModel]) {
+    newConfig.iflowProOcrModel = iflowProOcrModel;
+  }
+  if (iflowKingOcrModel && IFLOW_OCR_MODEL_OPTIONS[iflowKingOcrModel]) {
+    newConfig.iflowKingOcrModel = iflowKingOcrModel;
+  }
 
   await saveQuotaConfig(newConfig);
 
-  console.log(`[Admin] Updated quota config: Normal=${newNormalLimit}, Pro=${newProLimit}`);
+  console.log(`[Admin] Updated quota config:`, newConfig);
 
   res.json({
     success: true,
-    message: `配额配置已更新：普通用户每周${newNormalLimit}次，Pro用户每周${newProLimit}次`,
+    message: `配置已更新`,
     data: newConfig
   });
 });
