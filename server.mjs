@@ -1232,17 +1232,26 @@ const QINIU_AI_BASE_URL = "https://api.qnaigc.com/v1";
 // Gemini API 配置（智能小结专用，与OCR的GEMINI_API_KEY分开）
 const SUMMARY_GEMINI_API_KEY = process.env.SUMMARY_GEMINI_API_KEY || "";
 
-// 智能小结支持的模型
+// 智能小结支持的模型（后台可配置使用哪个模型）
+// 模型选项列表
+const SUMMARY_MODEL_OPTIONS = {
+  'gemini-3-flash': { name: 'Gemini 3 Flash', description: '最新模型，能力最强' },
+  'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '性能均衡，推荐使用' },
+  'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', description: '经典稳定版本' }
+};
+// 七牛云 API 映射的模型名
 const SUMMARY_MODELS = {
-  'gemini-3-flash': 'gemini-2.0-flash-001',           // 默认模型
-  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20' // 备选模型
+  'gemini-3-flash': 'gemini-2.0-flash-001',
+  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
+  'gemini-2.0-flash': 'gemini-2.0-flash-001'
 };
 // Gemini API 直连时使用的模型名
 const GEMINI_DIRECT_MODELS = {
   'gemini-3-flash': 'gemini-2.0-flash',
-  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20'
+  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
+  'gemini-2.0-flash': 'gemini-2.0-flash'
 };
-const DEFAULT_SUMMARY_MODEL = 'gemini-3-flash';
+const DEFAULT_SUMMARY_MODEL = 'gemini-2.5-flash';
 
 // 智能小结默认配额配置
 const DEFAULT_SUMMARY_QUOTA_CONFIG = {
@@ -1251,7 +1260,11 @@ const DEFAULT_SUMMARY_QUOTA_CONFIG = {
   kingWeeklyLimit: 999,   // KING用户无限制
   maxImagesNormal: 1,     // 普通用户最多1张图
   maxImagesPro: 3,        // Pro用户最多3张图
-  maxImagesKing: 5        // KING用户最多5张图
+  maxImagesKing: 5,       // KING用户最多5张图
+  // 各用户等级使用的AI模型
+  normalModel: 'gemini-2.0-flash',  // 普通用户使用 Gemini 2.0 Flash
+  proModel: 'gemini-2.5-flash',     // Pro用户使用 Gemini 2.5 Flash
+  kingModel: 'gemini-3-flash'       // KING用户使用 Gemini 3 Flash
 };
 
 // 智能小结提示词槽位（4个槽位）
@@ -1663,6 +1676,31 @@ app.post("/api/summary/text", async (req, res) => {
       });
     }
 
+    // 获取配置，确定用户等级对应的模型
+    const config = await getSummaryConfig();
+    const actualUserLevel = quotaResult.userLevel || 'normal';
+    let modelToUse = model; // 如果前端传了模型，优先使用
+    if (!modelToUse) {
+      // 根据用户等级从配置中获取对应模型
+      switch (actualUserLevel) {
+        case 'king':
+          modelToUse = config.kingModel || 'gemini-3-flash';
+          break;
+        case 'pro':
+          modelToUse = config.proModel || 'gemini-2.5-flash';
+          break;
+        default:
+          modelToUse = config.normalModel || 'gemini-2.0-flash';
+      }
+    }
+    
+    // 验证模型是否在支持列表中
+    if (!SUMMARY_MODEL_OPTIONS[modelToUse]) {
+      modelToUse = DEFAULT_SUMMARY_MODEL;
+    }
+    
+    console.log(`[Summary] User ${nickname || userId} (${actualUserLevel}) using model: ${modelToUse}`);
+
     // 构建消息内容
     const userContent = `检查日期: ${examData.date || '未知'}\n\n检查项目:\n${
       examData.items.map(item => 
@@ -1676,7 +1714,7 @@ app.post("/api/summary/text", async (req, res) => {
     ];
 
     // 调用 AI API（优先七牛云，备选 Gemini）
-    const result = await callSummaryAI(model || DEFAULT_SUMMARY_MODEL, messages);
+    const result = await callSummaryAI(modelToUse, messages);
 
     // 记录统计
     await incrementSummaryStats('text');
@@ -1684,7 +1722,8 @@ app.post("/api/summary/text", async (req, res) => {
     // 记录使用日志
     await logUserUsage(req, "summary-text", {
       itemsCount: examData.items.length,
-      model: model || DEFAULT_SUMMARY_MODEL
+      model: modelToUse,
+      userLevel: actualUserLevel
     });
 
     console.log(`[Summary] Text summary completed for user ${nickname || userId}`);
@@ -1692,12 +1731,14 @@ app.post("/api/summary/text", async (req, res) => {
     return res.json({
       success: true,
       summary: result.content,
-      model: model || DEFAULT_SUMMARY_MODEL,
+      model: modelToUse,
+      modelName: SUMMARY_MODEL_OPTIONS[modelToUse]?.name || modelToUse,
       usage: result.usage,
       quota: {
         remaining: quotaResult.remaining,
         weeklyLimit: quotaResult.weeklyLimit,
-        weeklyUsage: quotaResult.weeklyUsage
+        weeklyUsage: quotaResult.weeklyUsage,
+        userLevel: actualUserLevel
       }
     });
 
@@ -2071,14 +2112,26 @@ app.put("/api/admin/summary/config", verifyAdminToken, async (req, res) => {
   const newConfig = req.body || {};
   
   // 验证配置值
-  const validKeys = [
+  const validNumericKeys = [
     'normalWeeklyLimit', 'proWeeklyLimit', 'kingWeeklyLimit',
     'maxImagesNormal', 'maxImagesPro', 'maxImagesKing'
   ];
   
+  // 模型配置字段
+  const validModelKeys = ['normalModel', 'proModel', 'kingModel'];
+  
   const sanitizedConfig = {};
-  for (const key of validKeys) {
+  
+  // 处理数字配置
+  for (const key of validNumericKeys) {
     if (typeof newConfig[key] === 'number' && newConfig[key] >= 0) {
+      sanitizedConfig[key] = newConfig[key];
+    }
+  }
+  
+  // 处理模型配置（验证模型是否在支持列表中）
+  for (const key of validModelKeys) {
+    if (typeof newConfig[key] === 'string' && SUMMARY_MODEL_OPTIONS[newConfig[key]]) {
       sanitizedConfig[key] = newConfig[key];
     }
   }

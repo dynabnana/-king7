@@ -844,6 +844,38 @@
                     </div>
                   </div>
                 </div>
+                
+                <!-- AI模型选择 -->
+                <div style="width: 100%; margin-top: 0.5rem;">
+                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">🤖 AI模型选择</h4>
+                  <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">为不同等级用户设置使用的AI模型，能力越强的模型分析效果越好</p>
+                  <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                    <div class="form-group" style="min-width: 180px;">
+                      <label>👤 普通用户</label>
+                      <select id="summaryNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
+                        <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="min-width: 180px;">
+                      <label>⭐ Pro用户</label>
+                      <select id="summaryProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
+                        <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                      </select>
+                    </div>
+                    <div class="form-group" style="min-width: 180px;">
+                      <label>💎 KING用户</label>
+                      <select id="summaryKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
+                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
+                        <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
               </div>
               
               <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center;">
@@ -1672,6 +1704,11 @@
             document.getElementById('summaryNormalImages').value = data.config.maxImagesNormal || 1;
             document.getElementById('summaryProImages').value = data.config.maxImagesPro || 3;
             document.getElementById('summaryKingImages').value = data.config.maxImagesKing || 5;
+            
+            // 更新模型选择
+            document.getElementById('summaryNormalModel').value = data.config.normalModel || 'gemini-2.0-flash';
+            document.getElementById('summaryProModel').value = data.config.proModel || 'gemini-2.5-flash';
+            document.getElementById('summaryKingModel').value = data.config.kingModel || 'gemini-3-flash';
           }
         }
       } catch (err) {
@@ -1686,7 +1723,11 @@
         kingWeeklyLimit: parseInt(document.getElementById('summaryKingLimit').value) || 999,
         maxImagesNormal: parseInt(document.getElementById('summaryNormalImages').value) || 1,
         maxImagesPro: parseInt(document.getElementById('summaryProImages').value) || 3,
-        maxImagesKing: parseInt(document.getElementById('summaryKingImages').value) || 5
+        maxImagesKing: parseInt(document.getElementById('summaryKingImages').value) || 5,
+        // AI模型配置
+        normalModel: document.getElementById('summaryNormalModel').value || 'gemini-2.0-flash',
+        proModel: document.getElementById('summaryProModel').value || 'gemini-2.5-flash',
+        kingModel: document.getElementById('summaryKingModel').value || 'gemini-3-flash'
       };
 
       const statusEl = document.getElementById('summaryConfigStatus');
