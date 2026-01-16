@@ -1229,42 +1229,75 @@ app.post("/api/analyze/excel-header", async (req, res) => {
 const QINIU_AI_API_KEY = process.env.QINIU_AI_API_KEY || "";
 const QINIU_AI_BASE_URL = "https://api.qnaigc.com/v1";
 
+// 心流平台（iFlow）API 配置 - 免费API作为备选
+const IFLOW_AI_API_KEY = process.env.IFLOW_AI_API_KEY || "";
+const IFLOW_AI_BASE_URL = "https://apis.iflow.cn/v1";
+const IFLOW_DEFAULT_MODEL = "qwen3-max";  // 心流平台的默认模型
+
 // Gemini API 配置（智能小结专用，与OCR的GEMINI_API_KEY分开）
 const SUMMARY_GEMINI_API_KEY = process.env.SUMMARY_GEMINI_API_KEY || "";
 
-// 智能小结支持的模型（后台可配置使用哪个模型）
-// 模型选项列表
-const SUMMARY_MODEL_OPTIONS = {
+// ========== 智能小结模型配置 ==========
+// Gemini 模型选项列表
+const GEMINI_MODEL_OPTIONS = {
   'gemini-3-flash': { name: 'Gemini 3 Flash', description: '最新模型，能力最强' },
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '性能均衡，推荐使用' },
   'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', description: '经典稳定版本' }
 };
-// 七牛云 API 映射的模型名
+
+// iFlow 心流平台模型选项列表
+const IFLOW_MODEL_OPTIONS = {
+  'qwen3-max': { name: 'Qwen3 Max', description: '通义千问3，综合能力强' },
+  'kimi-k2-0905': { name: 'Kimi K2', description: 'Moonshot最新模型，推理能力强' }
+};
+
+// 合并所有模型选项（用于验证）
+const SUMMARY_MODEL_OPTIONS = { ...GEMINI_MODEL_OPTIONS, ...IFLOW_MODEL_OPTIONS };
+
+// 七牛云 API 映射的模型名（仅Gemini模型）
 const SUMMARY_MODELS = {
   'gemini-3-flash': 'gemini-2.0-flash-001',
   'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
   'gemini-2.0-flash': 'gemini-2.0-flash-001'
 };
+
 // Gemini API 直连时使用的模型名
 const GEMINI_DIRECT_MODELS = {
   'gemini-3-flash': 'gemini-2.0-flash',
   'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
   'gemini-2.0-flash': 'gemini-2.0-flash'
 };
+
+// iFlow 心流平台模型映射（直接使用）
+const IFLOW_MODELS = {
+  'qwen3-max': 'qwen3-max',
+  'kimi-k2-0905': 'kimi-k2-0905'
+};
+
 const DEFAULT_SUMMARY_MODEL = 'gemini-2.5-flash';
 
 // 智能小结默认配额配置
 const DEFAULT_SUMMARY_QUOTA_CONFIG = {
+  // API源选择: 'gemini' 或 'iflow'
+  apiProvider: 'gemini',
+  
+  // 配额设置
   normalWeeklyLimit: 2,   // 普通用户每周2次
   proWeeklyLimit: 5,      // Pro用户每周5次
   kingWeeklyLimit: 999,   // KING用户无限制
   maxImagesNormal: 1,     // 普通用户最多1张图
   maxImagesPro: 3,        // Pro用户最多3张图
   maxImagesKing: 5,       // KING用户最多5张图
-  // 各用户等级使用的AI模型
-  normalModel: 'gemini-2.0-flash',  // 普通用户使用 Gemini 2.0 Flash
-  proModel: 'gemini-2.5-flash',     // Pro用户使用 Gemini 2.5 Flash
-  kingModel: 'gemini-3-flash'       // KING用户使用 Gemini 3 Flash
+  
+  // Gemini 各用户等级使用的模型
+  geminiNormalModel: 'gemini-2.0-flash',
+  geminiProModel: 'gemini-2.5-flash',
+  geminiKingModel: 'gemini-3-flash',
+  
+  // iFlow 各用户等级使用的模型
+  iflowNormalModel: 'qwen3-max',
+  iflowProModel: 'qwen3-max',
+  iflowKingModel: 'kimi-k2-0905'
 };
 
 // 智能小结提示词槽位（4个槽位）
@@ -1495,6 +1528,41 @@ const callQiniuAI = async (model, messages, maxTokens = 2000) => {
   };
 };
 
+// 调用心流平台（iFlow）API - 免费API，使用OpenAI兼容格式
+const callIflowAI = async (model, messages, maxTokens = 2000) => {
+  // 从映射中获取实际模型ID，如果没有则使用默认
+  const modelId = IFLOW_MODELS[model] || IFLOW_DEFAULT_MODEL;
+  
+  console.log(`[Summary] Calling iFlow AI with model: ${modelId}`);
+
+  const response = await fetch(`${IFLOW_AI_BASE_URL}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${IFLOW_AI_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      model: modelId,
+      messages: messages,
+      max_tokens: maxTokens,
+      temperature: 0.7
+    })
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error(`[Summary] iFlow AI error: ${response.status}`, errorText);
+    throw new Error(`iFlow AI API error: ${response.status}`);
+  }
+
+  const data = await response.json();
+  return {
+    content: data.choices?.[0]?.message?.content || "",
+    usage: data.usage || {},
+    provider: 'iflow'
+  };
+};
+
 // 调用 Gemini API（使用 @google/genai SDK）
 const callGeminiAI = async (model, messages, maxTokens = 2000) => {
   const GenAI = await loadGenAI();
@@ -1553,33 +1621,46 @@ const callGeminiAI = async (model, messages, maxTokens = 2000) => {
   };
 };
 
-// 智能小结 AI 调用（优先七牛云，降级到 Gemini）
-const callSummaryAI = async (model, messages, maxTokens = 2000) => {
-  console.log(`[Summary] API config: QINIU=${!!QINIU_AI_API_KEY}, GEMINI=${!!SUMMARY_GEMINI_API_KEY}`);
+// 智能小结 AI 调用（根据配置的API源调用）
+// apiProvider: 'gemini' | 'iflow'，由后台配置决定
+const callSummaryAI = async (model, messages, maxTokens = 2000, apiProvider = 'gemini') => {
+  console.log(`[Summary] API Provider: ${apiProvider}, Model: ${model}`);
+  console.log(`[Summary] API Keys: QINIU=${!!QINIU_AI_API_KEY}, GEMINI=${!!SUMMARY_GEMINI_API_KEY}, IFLOW=${!!IFLOW_AI_API_KEY}`);
   
-  // 优先使用七牛云
-  if (QINIU_AI_API_KEY) {
-    try {
-      console.log('[Summary] Trying Qiniu AI...');
-      return await callQiniuAI(model, messages, maxTokens);
-    } catch (err) {
-      console.error('[Summary] Qiniu AI failed:', err.message);
-      // 七牛云失败，尝试 Gemini
-      if (SUMMARY_GEMINI_API_KEY) {
-        console.log('[Summary] Falling back to Gemini...');
-        return await callGeminiAI(model, messages, maxTokens);
-      }
-      throw err;
+  // 根据配置的API源调用对应的API
+  if (apiProvider === 'iflow') {
+    // 使用心流平台
+    if (!IFLOW_AI_API_KEY) {
+      throw new Error("iFlow API not configured. Set IFLOW_AI_API_KEY environment variable.");
     }
+    console.log('[Summary] Using iFlow AI...');
+    return await callIflowAI(model, messages, maxTokens);
+  } else {
+    // 使用 Gemini（默认）
+    // 优先使用七牛云代理，失败则直连 Gemini
+    if (QINIU_AI_API_KEY) {
+      try {
+        console.log('[Summary] Using Qiniu AI (Gemini proxy)...');
+        return await callQiniuAI(model, messages, maxTokens);
+      } catch (err) {
+        console.error('[Summary] Qiniu AI failed:', err.message);
+        // 七牛云失败，尝试直连 Gemini
+        if (SUMMARY_GEMINI_API_KEY) {
+          console.log('[Summary] Falling back to direct Gemini API...');
+          return await callGeminiAI(model, messages, maxTokens);
+        }
+        throw err;
+      }
+    }
+    
+    // 如果七牛云未配置，直接使用 Gemini
+    if (SUMMARY_GEMINI_API_KEY) {
+      console.log('[Summary] Using direct Gemini API...');
+      return await callGeminiAI(model, messages, maxTokens);
+    }
+    
+    throw new Error("Gemini API not configured. Set QINIU_AI_API_KEY or SUMMARY_GEMINI_API_KEY environment variable.");
   }
-  
-  // 如果七牛云未配置，使用 Gemini
-  if (SUMMARY_GEMINI_API_KEY) {
-    console.log('[Summary] Using Gemini API (Qiniu not configured)...');
-    return await callGeminiAI(model, messages, maxTokens);
-  }
-  
-  throw new Error("No AI API configured. Set QINIU_AI_API_KEY or SUMMARY_GEMINI_API_KEY.");
 };
 
 // 智能小结 API 调用统计
@@ -1676,30 +1757,47 @@ app.post("/api/summary/text", async (req, res) => {
       });
     }
 
-    // 获取配置，确定用户等级对应的模型
+    // 获取配置，确定API源和用户等级对应的模型
     const config = await getSummaryConfig();
     const actualUserLevel = quotaResult.userLevel || 'normal';
+    const apiProvider = config.apiProvider || 'gemini';
+    
     let modelToUse = model; // 如果前端传了模型，优先使用
     if (!modelToUse) {
-      // 根据用户等级从配置中获取对应模型
-      switch (actualUserLevel) {
-        case 'king':
-          modelToUse = config.kingModel || 'gemini-3-flash';
-          break;
-        case 'pro':
-          modelToUse = config.proModel || 'gemini-2.5-flash';
-          break;
-        default:
-          modelToUse = config.normalModel || 'gemini-2.0-flash';
+      // 根据API源和用户等级从配置中获取对应模型
+      if (apiProvider === 'iflow') {
+        // iFlow 模型
+        switch (actualUserLevel) {
+          case 'king':
+            modelToUse = config.iflowKingModel || 'kimi-k2-0905';
+            break;
+          case 'pro':
+            modelToUse = config.iflowProModel || 'qwen3-max';
+            break;
+          default:
+            modelToUse = config.iflowNormalModel || 'qwen3-max';
+        }
+      } else {
+        // Gemini 模型（默认）
+        switch (actualUserLevel) {
+          case 'king':
+            modelToUse = config.geminiKingModel || 'gemini-3-flash';
+            break;
+          case 'pro':
+            modelToUse = config.geminiProModel || 'gemini-2.5-flash';
+            break;
+          default:
+            modelToUse = config.geminiNormalModel || 'gemini-2.0-flash';
+        }
       }
     }
     
     // 验证模型是否在支持列表中
     if (!SUMMARY_MODEL_OPTIONS[modelToUse]) {
-      modelToUse = DEFAULT_SUMMARY_MODEL;
+      modelToUse = apiProvider === 'iflow' ? IFLOW_DEFAULT_MODEL : DEFAULT_SUMMARY_MODEL;
     }
     
-    console.log(`[Summary] User ${nickname || userId} (${actualUserLevel}) using model: ${modelToUse}`);
+    console.log(`[Summary] User ${nickname || userId} (${actualUserLevel}) using ${apiProvider}/${modelToUse}`);
 
     // 构建消息内容
     const userContent = `检查日期: ${examData.date || '未知'}\n\n检查项目:\n${
@@ -1713,8 +1811,8 @@ app.post("/api/summary/text", async (req, res) => {
       { role: "user", content: userContent }
     ];
 
-    // 调用 AI API（优先七牛云，备选 Gemini）
-    const result = await callSummaryAI(modelToUse, messages);
+    // 调用 AI API（根据配置的API源调用）
+    const result = await callSummaryAI(modelToUse, messages, 2000, apiProvider);
 
     // 记录统计
     await incrementSummaryStats('text');
@@ -1723,6 +1821,7 @@ app.post("/api/summary/text", async (req, res) => {
     await logUserUsage(req, "summary-text", {
       itemsCount: examData.items.length,
       model: modelToUse,
+      apiProvider: apiProvider,
       userLevel: actualUserLevel
     });
 
@@ -2117,10 +2216,17 @@ app.put("/api/admin/summary/config", verifyAdminToken, async (req, res) => {
     'maxImagesNormal', 'maxImagesPro', 'maxImagesKing'
   ];
   
-  // 模型配置字段
-  const validModelKeys = ['normalModel', 'proModel', 'kingModel'];
+  // Gemini 模型配置字段
+  const geminiModelKeys = ['geminiNormalModel', 'geminiProModel', 'geminiKingModel'];
+  // iFlow 模型配置字段
+  const iflowModelKeys = ['iflowNormalModel', 'iflowProModel', 'iflowKingModel'];
   
   const sanitizedConfig = {};
+  
+  // 处理 API 源选择
+  if (newConfig.apiProvider && ['gemini', 'iflow'].includes(newConfig.apiProvider)) {
+    sanitizedConfig.apiProvider = newConfig.apiProvider;
+  }
   
   // 处理数字配置
   for (const key of validNumericKeys) {
@@ -2129,9 +2235,16 @@ app.put("/api/admin/summary/config", verifyAdminToken, async (req, res) => {
     }
   }
   
-  // 处理模型配置（验证模型是否在支持列表中）
-  for (const key of validModelKeys) {
-    if (typeof newConfig[key] === 'string' && SUMMARY_MODEL_OPTIONS[newConfig[key]]) {
+  // 处理 Gemini 模型配置
+  for (const key of geminiModelKeys) {
+    if (typeof newConfig[key] === 'string' && GEMINI_MODEL_OPTIONS[newConfig[key]]) {
+      sanitizedConfig[key] = newConfig[key];
+    }
+  }
+  
+  // 处理 iFlow 模型配置
+  for (const key of iflowModelKeys) {
+    if (typeof newConfig[key] === 'string' && IFLOW_MODEL_OPTIONS[newConfig[key]]) {
       sanitizedConfig[key] = newConfig[key];
     }
   }

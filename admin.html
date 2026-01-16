@@ -845,34 +845,81 @@
                   </div>
                 </div>
                 
-                <!-- AI模型选择 -->
+                <!-- API源选择和模型配置 -->
                 <div style="width: 100%; margin-top: 0.5rem;">
-                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">🤖 AI模型选择</h4>
-                  <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">为不同等级用户设置使用的AI模型，能力越强的模型分析效果越好</p>
-                  <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                    <div class="form-group" style="min-width: 180px;">
-                      <label>👤 普通用户</label>
-                      <select id="summaryNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                        <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
-                      </select>
+                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">🔌 API源选择</h4>
+                  <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">选择智能小结使用的API提供商</p>
+                  
+                  <!-- API源开关 -->
+                  <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s;" id="providerGeminiLabel">
+                      <input type="radio" name="apiProvider" value="gemini" id="providerGemini" onchange="onApiProviderChange()" checked>
+                      <span style="font-weight: 500;">🌟 Gemini</span>
+                      <span style="font-size: 0.7rem; color: var(--text-muted);">Google AI</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s;" id="providerIflowLabel">
+                      <input type="radio" name="apiProvider" value="iflow" id="providerIflow" onchange="onApiProviderChange()">
+                      <span style="font-weight: 500;">💎 iFlow</span>
+                      <span style="font-size: 0.7rem; color: var(--text-muted);">心流 (免费)</span>
+                    </label>
+                  </div>
+                  
+                  <!-- Gemini 模型选择 -->
+                  <div id="geminiModelsSection">
+                    <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--primary);">🤖 Gemini 模型配置</h4>
+                    <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                      <div class="form-group" style="min-width: 180px;">
+                        <label>👤 普通用户</label>
+                        <select id="geminiNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
+                          <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
+                          <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="min-width: 180px;">
+                        <label>⭐ Pro用户</label>
+                        <select id="geminiProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
+                          <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (性能均衡)</option>
+                          <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="min-width: 180px;">
+                        <label>💎 KING用户</label>
+                        <select id="geminiKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
+                          <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
+                          <option value="gemini-3-flash" selected>Gemini 3 Flash (能力最强)</option>
+                        </select>
+                      </div>
                     </div>
-                    <div class="form-group" style="min-width: 180px;">
-                      <label>⭐ Pro用户</label>
-                      <select id="summaryProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                        <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
-                      </select>
-                    </div>
-                    <div class="form-group" style="min-width: 180px;">
-                      <label>💎 KING用户</label>
-                      <select id="summaryKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                        <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
-                        <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                        <option value="gemini-3-flash">Gemini 3 Flash (能力最强)</option>
-                      </select>
+                  </div>
+                  
+                  <!-- iFlow 模型选择 -->
+                  <div id="iflowModelsSection" style="display: none;">
+                    <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: #15803d;">🤖 iFlow 模型配置</h4>
+                    <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
+                      <div class="form-group" style="min-width: 180px;">
+                        <label>👤 普通用户</label>
+                        <select id="iflowNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                          <option value="qwen3-max" selected>Qwen3 Max (通义千问)</option>
+                          <option value="kimi-k2-0905">Kimi K2 (Moonshot)</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="min-width: 180px;">
+                        <label>⭐ Pro用户</label>
+                        <select id="iflowProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                          <option value="qwen3-max" selected>Qwen3 Max (通义千问)</option>
+                          <option value="kimi-k2-0905">Kimi K2 (Moonshot)</option>
+                        </select>
+                      </div>
+                      <div class="form-group" style="min-width: 180px;">
+                        <label>💎 KING用户</label>
+                        <select id="iflowKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
+                          <option value="qwen3-max">Qwen3 Max (通义千问)</option>
+                          <option value="kimi-k2-0905" selected>Kimi K2 (Moonshot)</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -890,11 +937,12 @@
             <div style="flex:1;">
               <h3 class="panel-title" style="color: #d97706;">⚡ API 配置说明</h3>
               <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.6;">
-                智能小结功能支持以下 API 提供商（按优先级）：<br>
+                智能小结功能支持以下 API 提供商（按优先级自动切换）：<br>
                 1. <strong>七牛云 AI</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">QINIU_AI_API_KEY</code><br>
                 2. <strong>Google Gemini</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">SUMMARY_GEMINI_API_KEY</code><br>
+                3. <strong>心流平台 (iFlow)</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">IFLOW_AI_API_KEY</code> <span style="background:#dcfce7;color:#15803d;padding:0.125rem 0.375rem;border-radius:0.25rem;font-size:0.75rem;">免费API</span><br>
                 <br>
-                如两者都配置，优先使用七牛云。如七牛云未配置或调用失败，会自动切换到 Gemini。
+                系统会按上述顺序尝试调用，如当前API失败会自动切换到下一个。心流平台是免费备选方案。
               </p>
             </div>
           </div>
@@ -1705,10 +1753,24 @@
             document.getElementById('summaryProImages').value = data.config.maxImagesPro || 3;
             document.getElementById('summaryKingImages').value = data.config.maxImagesKing || 5;
             
-            // 更新模型选择
-            document.getElementById('summaryNormalModel').value = data.config.normalModel || 'gemini-2.0-flash';
-            document.getElementById('summaryProModel').value = data.config.proModel || 'gemini-2.5-flash';
-            document.getElementById('summaryKingModel').value = data.config.kingModel || 'gemini-3-flash';
+            // 更新API源选择
+            const apiProvider = data.config.apiProvider || 'gemini';
+            if (apiProvider === 'iflow') {
+              document.getElementById('providerIflow').checked = true;
+            } else {
+              document.getElementById('providerGemini').checked = true;
+            }
+            onApiProviderChange(); // 更新UI显示
+            
+            // 更新 Gemini 模型选择
+            document.getElementById('geminiNormalModel').value = data.config.geminiNormalModel || 'gemini-2.0-flash';
+            document.getElementById('geminiProModel').value = data.config.geminiProModel || 'gemini-2.5-flash';
+            document.getElementById('geminiKingModel').value = data.config.geminiKingModel || 'gemini-3-flash';
+            
+            // 更新 iFlow 模型选择
+            document.getElementById('iflowNormalModel').value = data.config.iflowNormalModel || 'qwen3-max';
+            document.getElementById('iflowProModel').value = data.config.iflowProModel || 'qwen3-max';
+            document.getElementById('iflowKingModel').value = data.config.iflowKingModel || 'kimi-k2-0905';
           }
         }
       } catch (err) {
@@ -1716,18 +1778,55 @@
       }
     }
 
+    // API源切换处理
+    function onApiProviderChange() {
+      const isIflow = document.getElementById('providerIflow').checked;
+      
+      // 切换显示的模型配置区域
+      document.getElementById('geminiModelsSection').style.display = isIflow ? 'none' : 'block';
+      document.getElementById('iflowModelsSection').style.display = isIflow ? 'block' : 'none';
+      
+      // 更新选中状态样式
+      const geminiLabel = document.getElementById('providerGeminiLabel');
+      const iflowLabel = document.getElementById('providerIflowLabel');
+      
+      if (isIflow) {
+        geminiLabel.style.borderColor = 'var(--border)';
+        geminiLabel.style.background = 'white';
+        iflowLabel.style.borderColor = '#15803d';
+        iflowLabel.style.background = '#f0fdf4';
+      } else {
+        geminiLabel.style.borderColor = 'var(--primary)';
+        geminiLabel.style.background = 'var(--primary-light)';
+        iflowLabel.style.borderColor = 'var(--border)';
+        iflowLabel.style.background = 'white';
+      }
+    }
     async function saveSummaryConfig() {
+      // API源选择
+      const apiProvider = document.getElementById('providerIflow').checked ? 'iflow' : 'gemini';
+      
       const config = {
+        // API源
+        apiProvider: apiProvider,
+        
+        // 配额设置
         normalWeeklyLimit: parseInt(document.getElementById('summaryNormalLimit').value) || 2,
         proWeeklyLimit: parseInt(document.getElementById('summaryProLimit').value) || 5,
         kingWeeklyLimit: parseInt(document.getElementById('summaryKingLimit').value) || 999,
         maxImagesNormal: parseInt(document.getElementById('summaryNormalImages').value) || 1,
         maxImagesPro: parseInt(document.getElementById('summaryProImages').value) || 3,
         maxImagesKing: parseInt(document.getElementById('summaryKingImages').value) || 5,
-        // AI模型配置
-        normalModel: document.getElementById('summaryNormalModel').value || 'gemini-2.0-flash',
-        proModel: document.getElementById('summaryProModel').value || 'gemini-2.5-flash',
-        kingModel: document.getElementById('summaryKingModel').value || 'gemini-3-flash'
+        
+        // Gemini 模型配置
+        geminiNormalModel: document.getElementById('geminiNormalModel').value || 'gemini-2.0-flash',
+        geminiProModel: document.getElementById('geminiProModel').value || 'gemini-2.5-flash',
+        geminiKingModel: document.getElementById('geminiKingModel').value || 'gemini-3-flash',
+        
+        // iFlow 模型配置
+        iflowNormalModel: document.getElementById('iflowNormalModel').value || 'qwen3-max',
+        iflowProModel: document.getElementById('iflowProModel').value || 'qwen3-max',
+        iflowKingModel: document.getElementById('iflowKingModel').value || 'kimi-k2-0905'
       };
 
       const statusEl = document.getElementById('summaryConfigStatus');
