@@ -1381,7 +1381,6 @@ const SUMMARY_GEMINI_API_KEY = process.env.SUMMARY_GEMINI_API_KEY || "";
 // Gemini 模型选项列表
 const GEMINI_MODEL_OPTIONS = {
   'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: '最新预览版，能力最强' },
-  'gemini-3-flash': { name: 'Gemini 3 Flash (旧)', description: '别名映射到2.0' },
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '性能均衡，推荐使用' },
   'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', description: '经典稳定版本' }
 };
@@ -1398,16 +1397,14 @@ const SUMMARY_MODEL_OPTIONS = { ...GEMINI_MODEL_OPTIONS, ...IFLOW_MODEL_OPTIONS 
 // 七牛云 API 映射的模型名（仅Gemini模型）
 const SUMMARY_MODELS = {
   'gemini-3-flash-preview': 'gemini-3-flash-preview',
-  'gemini-3-flash': 'gemini-2.0-flash-001',
-  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
+  'gemini-2.5-flash': 'gemini-2.5-flash',
   'gemini-2.0-flash': 'gemini-2.0-flash-001'
 };
 
 // Gemini API 直连时使用的模型名
 const GEMINI_DIRECT_MODELS = {
   'gemini-3-flash-preview': 'gemini-3-flash-preview',
-  'gemini-3-flash': 'gemini-2.0-flash',
-  'gemini-2.5-flash': 'gemini-2.5-flash-preview-05-20',
+  'gemini-2.5-flash': 'gemini-2.5-flash',
   'gemini-2.0-flash': 'gemini-2.0-flash'
 };
 
@@ -1924,7 +1921,7 @@ app.post("/api/summary/text", async (req, res) => {
         // Gemini 模型（默认）
         switch (actualUserLevel) {
           case 'king':
-            modelToUse = config.geminiKingModel || 'gemini-3-flash';
+            modelToUse = config.geminiKingModel || 'gemini-3-flash-preview';
             break;
           case 'pro':
             modelToUse = config.geminiProModel || 'gemini-2.5-flash';

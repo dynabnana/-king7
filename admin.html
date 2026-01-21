@@ -1914,7 +1914,7 @@
             // 更新 Gemini 模型选择
             document.getElementById('geminiNormalModel').value = data.config.geminiNormalModel || 'gemini-2.0-flash';
             document.getElementById('geminiProModel').value = data.config.geminiProModel || 'gemini-2.5-flash';
-            document.getElementById('geminiKingModel').value = data.config.geminiKingModel || 'gemini-3-flash';
+            document.getElementById('geminiKingModel').value = data.config.geminiKingModel || 'gemini-3-flash-preview';
             
             // 更新 iFlow 模型选择
             document.getElementById('iflowNormalModel').value = data.config.iflowNormalModel || 'qwen3-max';
@@ -1970,7 +1970,7 @@
         // Gemini 模型配置
         geminiNormalModel: document.getElementById('geminiNormalModel').value || 'gemini-2.0-flash',
         geminiProModel: document.getElementById('geminiProModel').value || 'gemini-2.5-flash',
-        geminiKingModel: document.getElementById('geminiKingModel').value || 'gemini-3-flash',
+        geminiKingModel: document.getElementById('geminiKingModel').value || 'gemini-3-flash-preview',
         
         // iFlow 模型配置
         iflowNormalModel: document.getElementById('iflowNormalModel').value || 'qwen3-max',
