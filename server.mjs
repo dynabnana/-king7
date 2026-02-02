@@ -2841,8 +2841,10 @@ app.put("/api/admin/codes/:code/remark", verifyAdminToken, async (req, res) => {
 // [Admin] 获取用户配额列表（纯 Redis 模式）
 app.get("/api/admin/quota/users", verifyAdminToken, async (req, res) => {
   const users = await getQuotaUsers();
+  const summaryUsers = await getSummaryUsers();  // 同时获取智能小结用户数据
   const thisWeek = getCurrentWeekId();
   const quotaConfig = await getQuotaConfig();  // 获取全局配额配置
+  const summaryConfig = await getSummaryConfig();  // 获取智能小结配额配置
 
   const userList = Object.entries(users).map(([id, data]) => {
     // 如果用户的 currentWeek 不是本周，显示的 weeklyUsage 应该是 0
@@ -2850,17 +2852,37 @@ app.get("/api/admin/quota/users", verifyAdminToken, async (req, res) => {
     // 从全局配置获取每周限额
     const weeklyLimit = data.isPro ? quotaConfig.proWeeklyLimit : quotaConfig.normalWeeklyLimit;
 
+    // 获取该用户的智能小结使用数据
+    const summaryUser = summaryUsers[id];
+    let summaryWeeklyUsage = 0;
+    let summaryWeeklyLimit = summaryConfig.normalWeeklyLimit;
+    
+    if (summaryUser) {
+      // 检查智能小结是否本周
+      summaryWeeklyUsage = (summaryUser.currentWeek === thisWeek) ? (summaryUser.weeklyUsage || 0) : 0;
+    }
+    
+    // 根据用户等级获取智能小结限额
+    if (data.isUnlimited) {
+      summaryWeeklyLimit = summaryConfig.kingWeeklyLimit;
+    } else if (data.isPro) {
+      summaryWeeklyLimit = summaryConfig.proWeeklyLimit;
+    }
+
     return {
       id,
       ...data,
-      weeklyUsage,      // 修正后的本周已用次数
-      weeklyLimit       // 每周限额（从全局配置获取）
+      weeklyUsage,      // OCR 本周已用次数
+      weeklyLimit,      // OCR 每周限额（从全局配置获取）
+      summaryWeeklyUsage,   // 智能小结本周已用次数
+      summaryWeeklyLimit    // 智能小结每周限额
     };
   });
   res.json({
     success: true,
     data: userList,
-    config: quotaConfig  // 返回全局配额配置
+    config: quotaConfig,  // 返回全局配额配置
+    summaryConfig         // 返回智能小结配额配置
   });
 });
 

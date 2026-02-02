@@ -826,6 +826,7 @@
                     <th>用户ID</th>
                     <th>昵称</th>
                     <th>本周已用</th>
+                    <th>小结已用</th>
                     <th>额外额度</th>
                     <th>累计使用</th>
                     <th>备注</th>
@@ -1238,8 +1239,17 @@
               : '';
 
             const getUserDisplayName = (log) => {
-              if (log.nickname && log.nickname !== '匿名') return log.nickname;
+              // 通用/无意义的昵称列表
+              const genericNames = ['匿名', '用户', '未命名', 'user', 'anonymous'];
+              const nickname = log.nickname?.trim();
+              
+              // 如果有实际的昵称（不在通用列表中），优先显示
+              if (nickname && !genericNames.includes(nickname.toLowerCase())) {
+                return nickname;
+              }
+              // 否则显示 userId
               if (log.userId) return log.userId;
+              // 最后显示 IP
               return log.ip || '匿名';
             };
 
@@ -1723,7 +1733,7 @@
     function renderUsers(users) {
       const tbody = document.getElementById('usersTableBody');
       if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:2rem;">没有用户数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:2rem;">没有用户数据</td></tr>';
         return;
       }
       tbody.innerHTML = users.map(user => {
@@ -1742,12 +1752,17 @@
         const weeklyUsage = user.weeklyUsage || 0;
         const totalUsage = user.totalUsage || 0;  // 累计使用次数
         const remarkDisplay = user.remark || '<span style="color:var(--text-muted)">-</span>';
+        
+        // 智能小结本周已用
+        const summaryWeeklyUsage = user.summaryWeeklyUsage || 0;
+        const summaryWeeklyLimit = user.summaryWeeklyLimit || 2;
 
         return `
         <tr>
           <td style="font-family:monospace;font-size:0.75rem;">${user.id}</td>
           <td style="font-weight:500;">${user.nickname || '未命名'}</td>
           <td>${weeklyUsage} / ${weeklyLimit}</td>
+          <td><span style="color:${summaryWeeklyUsage > 0 ? '#7c3aed' : 'var(--text-muted)'}">${summaryWeeklyUsage} / ${summaryWeeklyLimit}</span></td>
           <td><span style="font-weight:600;color:${(user.extraQuota || 0) > 0 ? 'var(--primary)' : 'inherit'}">${user.extraQuota || 0}</span></td>
           <td><span style="font-weight:600;color:${totalUsage > 0 ? '#059669' : 'inherit'}">${totalUsage}</span></td>
           <td>
