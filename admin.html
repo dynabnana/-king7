@@ -1762,6 +1762,12 @@
               <button class="btn btn-sm btn-secondary" onclick="addUserQuota('${user.id}')">
                 +额度
               </button>
+              ${!user.isUnlimited ? `
+              <button class="btn btn-sm" style="background:${user.isPro ? '#ef4444' : '#f59e0b'};color:white;" 
+                onclick="togglePro('${user.id}', ${!user.isPro})">
+                ${user.isPro ? '-Pro' : '+Pro'}
+              </button>
+              ` : ''}
               <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger-solid' : 'btn-success'}" 
                 onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})">
                 ${user.isUnlimited ? 'Stop' : 'Ultra'}
@@ -1843,6 +1849,27 @@
         loadUsers();
       } else {
         alert('操作失败');
+      }
+    }
+
+    async function togglePro(userId, isPro) {
+      if (!confirm(`确定要${isPro ? '升级为Pro用户' : '取消Pro等级'}吗？`)) return;
+
+      const res = await fetch('/api/admin/users/pro', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ userId, isPro })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        alert(data.message || '操作成功');
+        loadUsers();
+      } else {
+        alert('操作失败: ' + (data.message || '未知错误'));
       }
     }
 

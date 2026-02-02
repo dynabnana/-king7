@@ -381,11 +381,19 @@ const redisCommand = async (command, ...args) => {
 };
 
 // 工具函数：获取当前周标识 (e.g. "2025-W51")
+// 使用 ISO 8601 标准周数计算，确保周数在整个一周内保持一致
 const getCurrentWeekId = () => {
   const now = new Date();
-  const onejan = new Date(now.getFullYear(), 0, 1);
-  const week = Math.ceil((((now - onejan) / 86400000) + onejan.getDay() + 1) / 7);
-  return `${now.getFullYear()}-W${week}`;
+  // 使用 UTC 时间避免时区问题
+  const utcNow = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+  // ISO 8601: 周从周一开始，第一周包含当年的第一个周四
+  // 设置为本周的周四（周四决定该周属于哪一年）
+  utcNow.setUTCDate(utcNow.getUTCDate() + 4 - (utcNow.getUTCDay() || 7));
+  // 获取该年第一天
+  const yearStart = new Date(Date.UTC(utcNow.getUTCFullYear(), 0, 1));
+  // 计算周数
+  const weekNumber = Math.ceil((((utcNow - yearStart) / 86400000) + 1) / 7);
+  return `${utcNow.getUTCFullYear()}-W${weekNumber.toString().padStart(2, '0')}`;
 };
 
 // ===== 纯 Redis 读写函数（不使用内存缓存）=====
@@ -2939,6 +2947,27 @@ app.post("/api/admin/users/unlimited", verifyAdminToken, async (req, res) => {
   await saveQuotaUsers(users);
 
   res.json({ success: true, data: users[userId] });
+});
+
+// [Admin] 设置用户Pro等级（纯 Redis 模式）
+app.post("/api/admin/users/pro", verifyAdminToken, async (req, res) => {
+  const { userId, isPro } = req.body;
+  const users = await getQuotaUsers();
+
+  if (!userId || !users[userId]) {
+    return res.status(404).json({ success: false, message: "用户不存在或未初始化" });
+  }
+
+  users[userId].isPro = !!isPro;
+  await saveQuotaUsers(users);
+
+  console.log(`[Admin] Set user ${userId} pro status to: ${!!isPro}`);
+
+  res.json({ 
+    success: true, 
+    message: isPro ? "已升级为Pro用户" : "已取消Pro等级",
+    data: users[userId] 
+  });
 });
 
 // [Admin] 给用户增加额外额度（纯 Redis 模式）
