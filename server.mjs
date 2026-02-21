@@ -547,7 +547,7 @@ const saveQuotaConfig = async (config) => {
   const newConfig = { ...DEFAULT_QUOTA_CONFIG, ...config };
   if (USE_REDIS) {
     try {
-      await redisCommand('SETEX', 'quota:config', REDIS_DATA_TTL, JSON.stringify(newConfig));
+      await redisCommand('SET', 'quota:config', JSON.stringify(newConfig));
       return;
     } catch (err) {
       console.error("[Redis] Failed to save config:", err.message);
@@ -1492,7 +1492,7 @@ const saveSummaryPrompts = async (prompts) => {
   const newPrompts = { ...DEFAULT_SUMMARY_PROMPTS, ...prompts };
   if (USE_REDIS) {
     try {
-      await redisCommand('SETEX', 'summary:prompts', REDIS_DATA_TTL, JSON.stringify(newPrompts));
+      await redisCommand('SET', 'summary:prompts', JSON.stringify(newPrompts));
       return true;
     } catch (err) {
       console.error("[Redis] Failed to save summary prompts:", err.message);
@@ -1521,7 +1521,7 @@ const saveSummaryConfig = async (config) => {
   const newConfig = { ...DEFAULT_SUMMARY_QUOTA_CONFIG, ...config };
   if (USE_REDIS) {
     try {
-      await redisCommand('SETEX', 'summary:config', REDIS_DATA_TTL, JSON.stringify(newConfig));
+      await redisCommand('SET', 'summary:config', JSON.stringify(newConfig));
       return true;
     } catch (err) {
       console.error("[Redis] Failed to save summary config:", err.message);
