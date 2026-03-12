@@ -10,212 +10,84 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root {
-      --primary: #4f46e5;
-      --primary-hover: #4338ca;
-      --primary-light: #eef2ff;
-      --bg-body: #f3f4f6;
-      --bg-card: #ffffff;
-      --bg-sidebar: #ffffff;
-      --text-main: #111827;
-      --text-muted: #6b7280;
-      --border: #e5e7eb;
-      --success: #10b981;
-      --success-bg: #ecfdf5;
-      --warning: #f59e0b;
-      --warning-bg: #fffbeb;
-      --danger: #ef4444;
-      --danger-bg: #fef2f2;
-      --radius: 12px;
-      --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+      /* Apple 2025 Modern Rounded Palette */
+      --primary: #007AFF;
+      --primary-hover: #0062CC;
+      --primary-light: rgba(0, 122, 255, 0.08);
+      --bg-body: #F2F2F7;
+      --bg-card: rgba(255, 255, 255, 0.9);
+      --bg-sidebar: rgba(255, 255, 255, 0.7);
+      --text-main: #1D1D1F;
+      --text-muted: #86868B;
+      --border: rgba(0, 0, 0, 0.08);
+      --border-light: rgba(0, 0, 0, 0.04);
+      --success: #34C759;
+      --success-bg: rgba(52, 199, 89, 0.12);
+      --warning: #FF9500;
+      --warning-bg: rgba(255, 149, 0, 0.12);
+      --danger: #FF3B30;
+      --danger-bg: rgba(255, 59, 48, 0.12);
+      --radius-lg: 24px;
+      --radius-md: 18px;
+      --radius-sm: 12px;
+      --shadow-modern: 0 8px 32px rgba(0,0,0,0.06);
+      --shadow-sm: 0 4px 12px rgba(0,0,0,0.03);
+      --blur: blur(20px);
     }
 
     * {
       margin: 0;
       padding: 0;
       box-sizing: border-box;
+      -webkit-font-smoothing: antialiased;
     }
 
     body {
-      font-family: 'Inter', -apple-system, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Icons", "Helvetica Neue", Helvetica, Arial, sans-serif;
       background: var(--bg-body);
       color: var(--text-main);
       height: 100vh;
       overflow: hidden;
+      letter-spacing: -0.015em;
     }
 
-    /* Common Utilities */
-    .btn {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0.5rem 1rem;
-      border-radius: 0.5rem;
-      font-weight: 500;
-      font-size: 0.875rem;
-      cursor: pointer;
-      transition: all 0.2s;
-      border: 1px solid transparent;
-      gap: 0.5rem;
-    }
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
 
-    .btn-primary {
-      background-color: var(--primary);
-      color: white;
-    }
-
-    .btn-primary:hover {
-      background-color: var(--primary-hover);
-    }
-
-    .btn-secondary {
-      background-color: white;
-      border-color: var(--border);
-      color: var(--text-main);
-    }
-
-    .btn-secondary:hover {
-      background-color: var(--bg-body);
-    }
-
-    .btn-danger {
-      background-color: var(--danger-bg);
-      color: var(--danger);
-    }
-
-    .btn-danger-solid {
-      background-color: var(--danger);
-      color: white;
-    }
-
-    .btn-success {
-      background-color: var(--success);
-      color: white;
-    }
-
-    .btn-sm {
-      padding: 0.25rem 0.75rem;
-      font-size: 0.75rem;
-    }
-
-    .badge {
-      display: inline-flex;
-      align-items: center;
-      padding: 0.125rem 0.5rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 500;
-    }
-
-    .badge-success {
-      background-color: var(--success-bg);
-      color: var(--success);
-    }
-
-    .badge-warning {
-      background-color: var(--warning-bg);
-      color: var(--warning);
-    }
-
-    .badge-danger {
-      background-color: var(--danger-bg);
-      color: var(--danger);
-    }
-
-    .badge-primary {
-      background-color: var(--primary-light);
-      color: var(--primary);
-    }
-
-    input {
-      display: block;
-      width: 100%;
-      border-radius: 0.5rem;
-      border: 1px solid var(--border);
-      padding: 0.625rem 0.875rem;
-      color: var(--text-main);
-      font-size: 0.875rem;
-      background: var(--bg-card);
-    }
-
-    input:focus {
-      outline: 2px solid var(--primary);
-      outline-offset: -1px;
-      border-color: transparent;
-    }
-
-    /* Login Page */
-    .login-container {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      background: linear-gradient(135deg, #e0e7ff 0%, #f3f4f6 100%);
-    }
-
-    .login-card {
-      background: white;
-      padding: 2.5rem;
-      border-radius: 1rem;
-      box-shadow: var(--shadow-lg);
-      width: 100%;
-      max-width: 24rem;
-    }
-
-    .login-header {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-
-    .login-header h1 {
-      font-size: 1.5rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .login-header p {
-      color: var(--text-muted);
-      font-size: 0.875rem;
-      margin-top: 0.5rem;
-    }
-
-    /* Dashboard Layout */
+    /* Layout Elements */
     .dashboard-layout {
       display: flex;
       height: 100vh;
     }
 
-    /* Sidebar */
     .sidebar {
-      width: 260px;
+      width: 240px;
       background: var(--bg-sidebar);
+      backdrop-filter: var(--blur);
       border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
+      padding: 2rem 1.25rem;
       flex-shrink: 0;
     }
 
     .sidebar-header {
-      height: 4rem;
-      display: flex;
-      align-items: center;
-      padding: 0 1.5rem;
-      border-bottom: 1px solid var(--border);
+      padding: 0 0.5rem 2.5rem;
     }
 
     .sidebar-header h2 {
-      font-size: 1rem;
+      font-size: 1.25rem;
       font-weight: 700;
-      color: var(--primary);
+      color: var(--text-main);
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.75rem;
     }
 
     .sidebar-nav {
       flex: 1;
-      padding: 1.5rem 1rem;
       display: flex;
       flex-direction: column;
       gap: 0.5rem;
@@ -225,35 +97,37 @@
       display: flex;
       align-items: center;
       gap: 0.75rem;
-      padding: 0.75rem 1rem;
-      border-radius: 0.5rem;
+      padding: 0.875rem 1rem;
+      border-radius: var(--radius-sm);
       color: var(--text-muted);
       background: transparent;
       border: none;
       width: 100%;
       text-align: left;
-      font-size: 0.875rem;
-      font-weight: 500;
+      font-size: 0.9375rem;
+      font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .nav-item:hover {
-      background-color: var(--bg-body);
+      background-color: rgba(0, 0, 0, 0.04);
       color: var(--text-main);
+      transform: translateX(4px);
     }
 
     .nav-item.active {
-      background-color: var(--primary-light);
-      color: var(--primary);
+      background-color: var(--primary);
+      color: #FFF;
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.3);
     }
 
-    .sidebar-footer {
-      padding: 1rem;
-      border-top: 1px solid var(--border);
+    .nav-item svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2.5;
     }
 
-    /* Main Content */
     .main-content {
       flex: 1;
       display: flex;
@@ -263,196 +137,339 @@
 
     .top-bar {
       height: 4rem;
+      background: rgba(255, 255, 255, 0.6);
+      backdrop-filter: var(--blur);
       border-bottom: 1px solid var(--border);
-      background: white;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 0 2rem;
+      padding: 0 2.5rem;
       flex-shrink: 0;
     }
 
     .page-title {
       font-size: 1.125rem;
-      font-weight: 600;
-      color: var(--text-main);
+      font-weight: 700;
+      letter-spacing: -0.02em;
     }
 
     .content-area {
       flex: 1;
       overflow-y: auto;
+      padding: 2.5rem;
+    }
+
+    /* Modern Rounded Card */
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
       padding: 2rem;
+      margin-bottom: 2rem;
+      box-shadow: var(--shadow-modern);
+      transition: transform 0.3s ease;
     }
 
-    .tab-content {
-      display: none;
-      animation: fadeIn 0.3s ease;
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
     }
 
-    .tab-content.active {
-      display: block;
+    .card-title {
+      font-size: 1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.625rem;
+      color: var(--text-main);
     }
 
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(5px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    /* Cards & Grids */
-    .grid-4 {
+    /* Grid Layouts */
+    .stat-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      grid-template-columns: repeat(4, 1fr);
       gap: 1.5rem;
       margin-bottom: 2rem;
     }
 
-    .stat-card {
-      background: white;
-      border-radius: var(--radius);
-      padding: 1.5rem;
-      box-shadow: var(--shadow-sm);
+    .stat-item {
+      background: var(--bg-card);
       border: 1px solid var(--border);
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .stat-card.interactive:hover {
-      transform: translateY(-2px);
-      box-shadow: var(--shadow);
-      border-color: var(--primary);
-    }
-
-    .stat-title {
-      font-size: 0.875rem;
-      color: var(--text-muted);
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-    }
-
-    .stat-value {
-      font-size: 1.875rem;
-      font-weight: 700;
-      color: var(--text-main);
-    }
-
-    .stat-desc {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      margin-top: 0.25rem;
-    }
-
-    /* Action Panels */
-    .action-panel {
-      background: white;
+      border-radius: var(--radius-md);
       padding: 1.5rem;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      margin-bottom: 1.5rem;
       display: flex;
-      align-items: flex-end;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .panel-title {
-      width: 100%;
-      font-size: 1rem;
-      font-weight: 600;
-      margin-bottom: 0.5rem;
-    }
-
-    .form-group {
-      flex: 1;
-      min-width: 200px;
-    }
-
-    .form-group label {
-      display: block;
-      font-size: 0.875rem;
-      font-weight: 500;
-      margin-bottom: 0.5rem;
-      color: var(--text-main);
-    }
-
-    /* Table */
-    .table-card {
-      background: white;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
+      flex-direction: column;
+      gap: 0.75rem;
       box-shadow: var(--shadow-sm);
+      transition: all 0.3s ease;
+      position: relative;
       overflow: hidden;
     }
 
-    .table-header {
-      padding: 1.5rem;
-      border-bottom: 1px solid var(--border);
+    .stat-item:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-modern);
+    }
+
+    .stat-icon-bg {
+      width: 42px;
+      height: 42px;
+      border-radius: 12px;
       display: flex;
-      justify-content: space-between;
       align-items: center;
+      justify-content: center;
+      margin-bottom: 0.25rem;
     }
 
-    .table-header h3 {
-      font-size: 1rem;
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border-light);
+    }
+
+    .refresh-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-body);
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      background: white;
+      color: var(--primary);
+      border-color: var(--primary);
+      transform: rotate(30deg);
+    }
+
+    .refresh-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    .stat-label {
+      font-size: 0.8125rem;
+      color: var(--text-muted);
       font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
 
-    .table-wrapper {
-      overflow-x: auto;
+    .stat-val {
+      font-size: 1.75rem;
+      font-weight: 800;
+      color: var(--text-main);
+      letter-spacing: -0.03em;
+    }
+
+    /* Compact Controls */
+    .input-field {
+      background: rgba(0, 0, 0, 0.03);
+      border: 1.5px solid transparent;
+      border-radius: var(--radius-sm);
+      padding: 0.75rem 1rem;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      outline: none;
+      transition: all 0.2s;
+      width: 100%;
+    }
+
+    .input-field:focus {
+      background: #FFF;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 4px var(--primary-light);
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-sm);
+      font-size: 0.9375rem;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.625rem;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .btn-primary { 
+      background: linear-gradient(135deg, #007AFF, #0055FF);
+      color: #FFF; 
+      box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
+    }
+    .btn-primary:hover { 
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 122, 255, 0.3);
+    }
+
+    .btn-secondary { 
+      background: rgba(0, 0, 0, 0.05); 
+      color: var(--text-main); 
+    }
+    .btn-secondary:hover { 
+      background: rgba(0, 0, 0, 0.08); 
+    }
+
+    .btn-danger { 
+      background: var(--danger-bg); 
+      color: var(--danger); 
+    }
+    .btn-danger:hover { 
+      background: rgba(255,59,48,0.2); 
+    }
+
+    .btn-success {
+      background: linear-gradient(135deg, #34C759, #28A745);
+      color: #FFF;
+      box-shadow: 0 4px 12px rgba(52, 199, 89, 0.2);
+    }
+
+    /* Tables */
+    .table-container {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      box-shadow: var(--shadow-modern);
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.875rem;
     }
 
     th {
       text-align: left;
-      padding: 0.75rem 1.5rem;
-      background: #f9fafb;
+      padding: 1.25rem 1.5rem;
+      font-size: 0.8125rem;
+      font-weight: 700;
       color: var(--text-muted);
-      font-weight: 500;
-      font-size: 0.75rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.01);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
     td {
-      padding: 1rem 1.5rem;
+      padding: 1.25rem 1.5rem;
+      font-size: 0.9375rem;
       border-bottom: 1px solid var(--border);
+      font-weight: 500;
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background-color: rgba(0, 0, 0, 0.01); }
+
+    /* Sections / Tabs */
+    .tab-content { display: none; animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+    .tab-content.active { display: block; }
+    @keyframes slideUp { 
+      from { opacity: 0; transform: translateY(12px); } 
+      to { opacity: 1; transform: translateY(0); } 
+    }
+
+    /* Form Elements */
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.75rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .field-label {
+      font-size: 0.875rem;
+      font-weight: 700;
       color: var(--text-main);
+      margin-bottom: 0.625rem;
+      display: block;
     }
 
-    tr:last-child td {
-      border-bottom: none;
+    /* Badge */
+    .badge {
+      padding: 0.375rem 0.75rem;
+      border-radius: 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
     }
 
-    tr:hover td {
-      background-color: #f9fafb;
+    .badge-success { background: var(--success-bg); color: var(--success); }
+    .badge-primary { background: var(--primary-light); color: var(--primary); }
+    .badge-danger { background: var(--danger-bg); color: var(--danger); }
+    .badge-warning { background: var(--warning-bg); color: var(--warning); }
+
+    .hidden { display: none !important; }
+
+    /* Generator Component Styling */
+    .generator-box {
+      background: rgba(0, 0, 0, 0.02);
+      border-radius: var(--radius-md);
+      padding: 1.75rem;
+      border: 1px solid var(--border);
     }
 
-    .pagination {
-      padding: 1rem;
+    .type-selector {
       display: flex;
-      justify-content: center;
-      gap: 0.5rem;
-      border-top: 1px solid var(--border);
+      background: rgba(0, 0, 0, 0.05);
+      padding: 4px;
+      border-radius: 14px;
+      margin-bottom: 1.5rem;
+      width: fit-content;
     }
 
-    .code-font {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    .type-btn {
+      padding: 0.5rem 1.25rem;
+      border-radius: 10px;
+      font-size: 0.875rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      transition: all 0.2s;
+    }
+
+    .type-btn.active {
+      background: #FFF;
       color: var(--primary);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
     }
 
-    /* Utility Classes for JS created elements */
-    .hidden {
-      display: none !important;
+    /* Icon Helper */
+    .svg-icon {
+      width: 1.25rem;
+      height: 1.25rem;
+      stroke-width: 2.2;
+      stroke: currentColor;
+      fill: none;
+      transition: all 0.2s;
+    }
+
+    .icon-svg {
+      width: 1.25rem;
+      height: 1.25rem;
+      stroke-width: 2.2;
+      stroke: currentColor;
+      fill: none;
+      transition: all 0.2s;
+    }
+    
+    /* Interactive States */
+    .interactive:hover {
+      cursor: pointer;
     }
   </style>
 </head>
@@ -460,19 +477,22 @@
 <body>
 
   <!-- Login Page -->
-  <div id="loginPage" class="login-container">
-    <div class="login-card">
+  <div id="loginPage" class="login-container" style="background: var(--bg-body); display: flex; align-items: center; justify-content: center; height: 100vh;">
+    <div class="card" style="width: 100%; max-width: 400px; text-align: center; backdrop-filter: var(--blur);">
       <div class="login-header">
-        <h1>Admin Portal</h1>
-        <p>检查单识别助手管理后台</p>
+        <div style="width: 80px; height: 80px; background: var(--primary-light); border-radius: 24px; display: flex; align-items: center; justify-content: center; margin: 0 auto 2rem; color: var(--primary); box-shadow: 0 8px 24px rgba(0, 122, 255, 0.15);">
+          <svg class="svg-icon" style="width: 40px; height: 40px;" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        </div>
+        <h1 style="font-size: 1.75rem; margin-bottom: 0.5rem; letter-spacing: -0.03em;">Admin Portal</h1>
+        <p style="color: var(--text-muted); font-size: 1rem; font-weight: 600; margin-bottom: 2.5rem;">检查单识别助手管理后台</p>
       </div>
       <form id="loginForm">
         <div style="margin-bottom: 1.5rem;">
-          <input type="password" id="password" placeholder="输入管理密码..." required>
+          <input type="password" id="password" placeholder="输入管理密码..." required class="input-field" style="height: 56px; border-radius: 16px; text-align: center; font-size: 1.125rem;">
         </div>
-        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.75rem;">登录系统</button>
+        <button type="submit" class="btn btn-primary" style="width: 100%; height: 56px; border-radius: 16px; font-size: 1.125rem;">登录系统</button>
         <p id="loginError" class="badge-danger"
-          style="margin-top: 1rem; display: none; text-align: center; border-radius: 0.5rem; padding: 0.5rem;"></p>
+          style="margin-top: 1.5rem; display: none; text-align: center; border-radius: 12px; padding: 1rem; font-weight: 700; width: 100%;"></p>
       </form>
     </div>
   </div>
@@ -483,27 +503,35 @@
     <!-- Sidebar -->
     <aside class="sidebar">
       <div class="sidebar-header">
-        <h2>⚡ Admin</h2>
+        <h2>
+          <svg class="icon-svg" style="width: 24px; height: 24px; color: var(--primary);" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          Admin
+        </h2>
       </div>
 
       <nav class="sidebar-nav">
         <button onclick="switchTab('logs')" class="nav-item active tab-btn" data-tab="logs">
-          <span>📊</span> 使用记录
+          <svg viewBox="0 0 24 24" class="svg-icon" style="color: #007AFF;"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+          使用记录
         </button>
         <button onclick="switchTab('codes')" class="nav-item tab-btn" data-tab="codes">
-          <span>🎟️</span> 兑换码管理
+          <svg viewBox="0 0 24 24" class="svg-icon" style="color: #FF2D55;"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="7" y1="15" x2="17" y2="15"/></svg>
+          兑换码管理
         </button>
         <button onclick="switchTab('users')" class="nav-item tab-btn" data-tab="users">
-          <span>👥</span> 用户配额
+          <svg viewBox="0 0 24 24" class="svg-icon" style="color: #34C759;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          用户配额
         </button>
         <button onclick="switchTab('summary')" class="nav-item tab-btn" data-tab="summary">
-          <span>🧠</span> 智能小结
+          <svg viewBox="0 0 24 24" class="svg-icon" style="color: #AF52DE;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="7.5 4.21 12 6.81 16.5 4.21"/><polyline points="7.5 19.79 7.5 14.63 3 12"/><polyline points="21 12 16.5 14.63 16.5 19.79"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+          智能小结
         </button>
       </nav>
 
       <div class="sidebar-footer">
-        <button onclick="logout()" class="btn btn-danger" style="width: 100%; justify-content: flex-start;">
-          <span>🚪</span> 退出登录
+        <button onclick="logout()" class="nav-item" style="color: var(--danger); background: rgba(255, 59, 48, 0.05); margin-top: 0.5rem;">
+          <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--danger);"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          退出登录
         </button>
       </div>
     </aside>
@@ -512,8 +540,10 @@
     <main class="main-content">
       <header class="top-bar">
         <div class="page-title">管理控制台</div>
-        <div style="font-size: 0.875rem; color: var(--text-muted);">
-          Running on Zeabur
+        <div style="display: flex; align-items: center; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem; background: white; padding: 0.5rem 1rem; border-radius: 12px; border: 1px solid var(--border); font-size: 0.8125rem; font-weight: 700; color: var(--text-main); letter-spacing: -0.01em;">
+            Inno·感知细微 预见趋势
+          </div>
         </div>
       </header>
 
@@ -522,140 +552,187 @@
         <!-- Tab 1: Logs -->
         <div id="tab-logs" class="tab-content active">
 
-          <div class="grid-4">
-            <div class="stat-card">
-              <div class="stat-title">总调用次数</div>
-              <div class="stat-value" id="statTotalCalls">-</div>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: var(--primary-light);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--primary);"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+              </div>
+              <div class="stat-label">总调用次数</div>
+              <div class="stat-val" id="statTotalCalls">-</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-title">今日调用</div>
-              <div class="stat-value" id="statTodayCalls">-</div>
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: var(--success-bg);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--success);"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              </div>
+              <div class="stat-label">今日调用</div>
+              <div class="stat-val" id="statTodayCalls">-</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-title">本月调用</div>
-              <div class="stat-value" id="statMonthCalls">-</div>
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: var(--warning-bg);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--warning);"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              </div>
+              <div class="stat-label">本月调用</div>
+              <div class="stat-val" id="statMonthCalls">-</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-title">独立用户</div>
-              <div class="stat-value" id="statTotalUsers">-</div>
-              <div class="stat-desc">按ID/昵称/IP统计</div>
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: rgba(175, 82, 222, 0.1);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #AF52DE;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              </div>
+              <div class="stat-label">独立用户</div>
+              <div class="stat-val" id="statTotalUsers">-</div>
             </div>
           </div>
 
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
-            <div style="flex: 1; max-width: 500px; display: flex; gap: 0.5rem;">
-              <input type="text" id="logUserSearch" placeholder="🔍  搜索用户ID或昵称..."
-                onkeydown="if(event.key==='Enter')searchUserLogs()">
-              <button class="btn btn-primary" onclick="searchUserLogs()">搜索</button>
-              <button class="btn btn-secondary" onclick="clearUserSearch()">清除</button>
-            </div>
-            <button class="btn btn-danger" onclick="clearAllLogs()">🗑️ 清除所有数据</button>
-          </div>
-
-          <!-- Search Result Panel -->
-          <div id="userStatsPanel" class="hidden"
-            style="background: var(--primary-light); border: 1px solid var(--primary); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 2rem;">
-            <h3 style="color: var(--primary); font-size: 1rem; margin-bottom: 1rem;">用户统计: <span
-                id="searchUserName">-</span></h3>
-            <div class="grid-4" style="margin-bottom: 0;">
-              <div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">累计调用</div>
-                <div style="font-size: 1.5rem; font-weight: 700;" id="searchUserTotal">-</div>
+          <div class="card" style="padding: 0.75rem 1.25rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+              <div style="flex: 1; position: relative; display: flex; align-items: center;">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="position: absolute; left: 0.75rem; color: var(--text-muted); pointer-events: none; width: 16px; height: 16px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="logUserSearch" placeholder="搜索用户 ID 或昵称..." 
+                  class="input-field" style="padding-left: 2.5rem; width: 100%; border: none; background: transparent;"
+                  onkeydown="if(event.key==='Enter')searchUserLogs()">
               </div>
-              <div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">本月调用</div>
-                <div style="font-size: 1.5rem; font-weight: 700;" id="searchUserMonth">-</div>
-              </div>
-              <div>
-                <div style="font-size: 0.8rem; color: var(--text-muted);">今日调用</div>
-                <div style="font-size: 1.5rem; font-weight: 700;" id="searchUserToday">-</div>
+              <div style="display: flex; gap: 0.5rem;">
+                <button class="btn btn-primary" onclick="searchUserLogs()" style="padding: 0.4rem 1rem;">搜索</button>
+                <button class="btn btn-secondary" onclick="clearUserSearch()" style="padding: 0.4rem 1rem;">重置</button>
+                <button class="btn btn-danger" onclick="clearAllLogs()" style="padding: 0.4rem 0.75rem;" title="清除所有数据">
+                  <svg viewBox="0 0 24 24" class="svg-icon" style="width: 14px; height: 14px;"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
               </div>
             </div>
           </div>
 
-          <div class="table-card">
-            <div class="table-header">
-              <h3 id="logsTableTitle">实时日志</h3>
-              <button class="btn btn-sm btn-secondary" onclick="loadLogs()">🔄 刷新</button>
+          <!-- Search Result Panel (Simplified) -->
+          <div id="userStatsPanel" class="hidden card" style="border-color: var(--primary); padding: 1.25rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <div style="font-weight: 700; color: var(--primary); display: flex; align-items: center; gap: 0.5rem;">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="width: 16px; height: 16px;"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                用户统计: <span id="searchUserName">-</span>
+              </div>
+              <div style="display: flex; gap: 1.5rem;">
+                <div style="text-align: right;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">累计</span>
+                  <div style="font-weight: 700;" id="searchUserTotal">-</div>
+                </div>
+                <div style="text-align: right;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">本月</span>
+                  <div style="font-weight: 700;" id="searchUserMonth">-</div>
+                </div>
+                <div style="text-align: right;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">今日</span>
+                  <div style="font-weight: 700;" id="searchUserToday">-</div>
+                </div>
+              </div>
             </div>
-            <div class="table-wrapper">
-              <table>
-                <thead>
-                  <tr>
-                    <th>时间</th>
-                    <th>用户 / IP</th>
-                    <th>类型</th>
-                    <th>统计</th>
-                    <th>详情</th>
-                  </tr>
-                </thead>
-                <tbody id="logsTableBody"></tbody>
-              </table>
+          </div>
+
+          <div class="table-container">
+            <div class="top-bar" style="height: 3.5rem; background: rgba(0,0,0,0.02); padding: 0 1.5rem; border-bottom: 1px solid var(--border-light); border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div id="logsTableTitle" style="font-size: 0.9375rem; font-weight: 700;">实时日志</div>
+              <button class="refresh-btn" onclick="loadLogs()" title="刷新日志">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1.00 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              </button>
             </div>
-            <div class="pagination" id="logsPagination"></div>
+            <table>
+              <thead>
+                <tr>
+                  <th>时间</th>
+                  <th>用户 / IP</th>
+                  <th>类型</th>
+                  <th>统计</th>
+                  <th>详情</th>
+                </tr>
+              </thead>
+              <tbody id="logsTableBody"></tbody>
+            </table>
+            <div style="padding: 1rem; border-top: 1px solid var(--border-light); display: flex; justify-content: center; gap: 1rem;" id="logsPagination"></div>
           </div>
 
         </div>
 
         <!-- Tab 2: Codes -->
         <div id="tab-codes" class="tab-content">
-          <div class="action-panel">
-            <div style="flex:1;">
-              <h3 class="panel-title">生成普通兑换码</h3>
-              <div style="display:flex; gap: 1rem; align-items: flex-end;">
-                <div class="form-group">
-                  <label>额度次数</label>
-                  <input type="number" id="codeAmount" value="20">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: var(--primary);"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                兑换码生成器
+              </div>
+              <div class="type-selector" style="margin-bottom: 0;">
+                <button class="type-btn active" onclick="toggleGenerator('normal', this)">普通码</button>
+                <button class="type-btn" onclick="toggleGenerator('unlimited', this)">无限码</button>
+                <button class="type-btn" onclick="toggleGenerator('pro', this)">Pro 码</button>
+              </div>
+            </div>
+
+            <div class="generator-box">
+              <!-- 普通码表单 -->
+              <div id="gen-normal" class="gen-form">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="field-label">额外额度次数</label>
+                    <input type="number" id="codeAmount" value="20" class="input-field" style="width: 100%;">
+                  </div>
+                  <div class="form-group">
+                    <label class="field-label">生成数量 (最多50)</label>
+                    <input type="number" id="codeCount" value="1" max="50" class="input-field" style="width: 100%;">
+                  </div>
+                  <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn btn-primary" onclick="generateCodes()" style="width: 100%; height: 38px;">
+                      <svg viewBox="0 0 24 24" class="svg-icon"><path d="M12 5v14M5 12h14"/></svg>
+                      立即生成普通码
+                    </button>
+                  </div>
                 </div>
-                <div class="form-group">
-                  <label>生成数量</label>
-                  <input type="number" id="codeCount" value="1" max="50">
+              </div>
+
+              <!-- 无限码表单 -->
+              <div id="gen-unlimited" class="gen-form hidden">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="field-label">生成数量</label>
+                    <input type="number" id="unlimitedCodeCount" value="1" max="10" class="input-field" style="width: 100%;">
+                  </div>
+                  <div class="form-group" style="grid-column: span 2;">
+                    <label class="field-label">备注 (可选)</label>
+                    <input type="text" id="unlimitedCodeRemark" placeholder="例如：活动赠送" class="input-field" style="width: 100%;">
+                  </div>
+                  <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn btn-success" onclick="generateUnlimitedCodes()" style="width: 100%; height: 38px;">
+                      <svg viewBox="0 0 24 24" class="svg-icon"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                      生成无限码
+                    </button>
+                  </div>
                 </div>
-                <button class="btn btn-primary" onclick="generateCodes()">✨ 生成</button>
+              </div>
+
+              <!-- Pro 码表单 -->
+              <div id="gen-pro" class="gen-form hidden">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="field-label">生成数量</label>
+                    <input type="number" id="proCodeCount" value="1" max="10" class="input-field" style="width: 100%;">
+                  </div>
+                  <div class="form-group" style="grid-column: span 2;">
+                    <label class="field-label">备注 (可选)</label>
+                    <input type="text" id="proCodeRemark" placeholder="例如：Pro 升级码" class="input-field" style="width: 100%;">
+                  </div>
+                  <div class="form-group" style="display: flex; align-items: flex-end;">
+                    <button class="btn" style="background: var(--warning); color: white; width: 100%; height: 38px;" onclick="generateProCodes()">
+                      <svg viewBox="0 0 24 24" class="svg-icon"><circle cx="12" cy="12" r="10"/><path d="M12 8l-4 8h8z"/></svg>
+                      生成 Pro 码
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          <div class="action-panel" style="background: linear-gradient(to right, #ecfdf5, white);">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: var(--success);">生成无限畅享码</h3>
-              <div style="display:flex; gap: 1rem; align-items: flex-end;">
-                <div class="form-group">
-                  <label>数量</label>
-                  <input type="number" id="unlimitedCodeCount" value="1" max="10">
-                </div>
-                <div class="form-group" style="flex: 2;">
-                  <label>备注 (可选)</label>
-                  <input type="text" id="unlimitedCodeRemark" placeholder="如：Gift for Alex">
-                </div>
-                <button class="btn btn-success" onclick="generateUnlimitedCodes()">💎 生成无限码</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="action-panel" style="background: linear-gradient(to right, #fef3c7, white);">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: #d97706;">生成Pro用户兑换码</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Pro用户每周可用10次（普通用户5次）</p>
-              <div style="display:flex; gap: 1rem; align-items: flex-end;">
-                <div class="form-group">
-                  <label>数量</label>
-                  <input type="number" id="proCodeCount" value="1" max="10">
-                </div>
-                <div class="form-group" style="flex: 2;">
-                  <label>备注 (可选)</label>
-                  <input type="text" id="proCodeRemark" placeholder="如：Pro upgrade for user">
-                </div>
-                <button class="btn" style="background: #f59e0b; color: white;" onclick="generateProCodes()">⭐
-                  生成Pro码</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="table-card">
-            <div class="table-header">
-              <h3>有效兑换码列表</h3>
-              <button class="btn btn-sm btn-secondary" onclick="loadCodes()">🔄 刷新</button>
+          <div class="table-container" style="margin-top: 2rem;">
+            <div class="top-bar" style="height: 3.5rem; background: rgba(0,0,0,0.02); padding: 0 1.5rem; border-bottom: 1px solid var(--border-light); border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="font-size: 0.9375rem; font-weight: 700;">有效兑换码列表</div>
+              <button class="refresh-btn" onclick="loadCodes()" title="刷新列表">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1.00 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              </button>
             </div>
             <div class="table-wrapper">
               <table>
@@ -676,148 +753,149 @@
 
         <!-- Tab 3: Users -->
         <div id="tab-users" class="tab-content">
-          <div class="grid-4">
-            <div class="stat-card interactive" onclick="filterByType('unlimited')" id="card-unlimited">
-              <div class="stat-title">💎 无限畅享用户</div>
-              <div class="stat-value" id="statUnlimitedUsers">-</div>
+          <div class="stat-grid">
+            <div class="stat-item interactive" onclick="filterByType('unlimited')" id="card-unlimited">
+              <div class="stat-icon-bg" style="background: var(--success-bg);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #34C759;"><path d="M6 3h12l4 6-10 12L2 9z"/></svg>
+              </div>
+              <div class="stat-label">无限畅享用户</div>
+              <div class="stat-val" id="statUnlimitedUsers">-</div>
             </div>
-            <div class="stat-card interactive" onclick="filterByType('pro')" id="card-pro">
-              <div class="stat-title">⭐ Pro 用户</div>
-              <div class="stat-value" id="statProUsers">-</div>
+            <div class="stat-item interactive" onclick="filterByType('pro')" id="card-pro">
+              <div class="stat-icon-bg" style="background: var(--warning-bg);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #FF9500;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+              </div>
+              <div class="stat-label">Pro 用户</div>
+              <div class="stat-val" id="statProUsers">-</div>
             </div>
-            <div class="stat-card interactive" onclick="filterByType('normal')" id="card-normal">
-              <div class="stat-title">👤 普通用户</div>
-              <div class="stat-value" id="statNormalUsers">-</div>
+            <div class="stat-item interactive" onclick="filterByType('normal')" id="card-normal">
+              <div class="stat-icon-bg" style="background: var(--primary-light);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #007AFF;"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+              </div>
+              <div class="stat-label">普通用户</div>
+              <div class="stat-val" id="statNormalUsers">-</div>
             </div>
-            <div class="stat-card interactive" onclick="filterByType('all')" id="card-all">
-              <div class="stat-title">📊 全部用户</div>
-              <div class="stat-value" id="statAllUsers">-</div>
+            <div class="stat-item interactive" onclick="filterByType('all')" id="card-all">
+              <div class="stat-icon-bg" style="background: rgba(142, 142, 147, 0.1);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #8E8E93;"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+              </div>
+              <div class="stat-label">全部用户</div>
+              <div class="stat-val" id="statAllUsers">-</div>
             </div>
           </div>
 
-          <!-- 全局配额配置面板 -->
-          <div class="action-panel" style="background: linear-gradient(to right, #dbeafe, white); margin-bottom: 1rem;">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: #2563eb;">⚙️ 全局配额配置</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">调整所有用户的每周额度限制（0-100次）</p>
-              <div style="display:flex; gap: 1.5rem; align-items: flex-end; flex-wrap: wrap;">
-                <div class="form-group">
-                  <label>👤 普通用户每周</label>
-                  <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <input type="number" id="normalWeeklyLimit" value="5" min="0" max="100" style="width:80px;">
-                    <span style="color:var(--text-muted);">次</span>
-                  </div>
-                </div>
-                <div class="form-group">
-                  <label>⭐ Pro用户每周</label>
-                  <div style="display:flex;align-items:center;gap:0.5rem;">
-                    <input type="number" id="proWeeklyLimit" value="10" min="0" max="100" style="width:80px;">
-                    <span style="color:var(--text-muted);">次</span>
-                  </div>
-                </div>
-                <button class="btn btn-primary" onclick="updateQuotaConfig()">💾 保存配置</button>
-                <span id="configStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+          <div class="form-row" style="grid-template-columns: 1fr 2fr;">
+            <!-- 全局配额配置面板 -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-title" style="color: var(--primary); margin-bottom: 1rem;">
+                <svg viewBox="0 0 24 24" class="svg-icon"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                配额配置
               </div>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="field-label">普通用户每周</label>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <input type="number" id="normalWeeklyLimit" value="5" class="input-field" style="flex: 1;">
+                  <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">次</span>
+                </div>
+              </div>
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="field-label">Pro用户每周</label>
+                <div style="display:flex;align-items:center;gap:0.5rem;">
+                  <input type="number" id="proWeeklyLimit" value="10" class="input-field" style="flex: 1;">
+                  <span style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted);">次</span>
+                </div>
+              </div>
+              <button class="btn btn-primary" onclick="updateQuotaConfig()" style="width: 100%;">
+                保存配额
+              </button>
+              <div id="configStatus" style="font-size: 0.75rem; text-align: center; margin-top: 0.5rem; height: 1rem;"></div>
             </div>
-          </div>
 
-          <!-- OCR API 配置面板 -->
-          <div class="action-panel" style="background: linear-gradient(to right, #f0fdf4, white); margin-bottom: 1rem;">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: #15803d;">🔍 OCR API 配置</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.75rem;">选择OCR识别使用的API提供商和各用户等级的模型</p>
+            <!-- OCR API 配置面板 -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-title" style="color: var(--success); margin-bottom: 1rem;">
+                <svg viewBox="0 0 24 24" class="svg-icon"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+                OCR 识别引擎
+              </div>
               
-              <!-- API源开关 -->
-              <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer;" id="ocrProviderGeminiLabel">
-                  <input type="radio" name="ocrApiProvider" value="gemini" id="ocrProviderGemini" onchange="onOcrApiProviderChange()" checked>
-                  <span style="font-weight: 500;">🌟 Gemini</span>
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; background: #F5F5F7; padding: 4px; border-radius: 8px;">
+                <label style="flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600;" id="ocrProviderGeminiLabel">
+                  <input type="radio" name="ocrApiProvider" value="gemini" id="ocrProviderGemini" onchange="onOcrApiProviderChange()" checked style="display: none;">
+                  Gemini
                 </label>
-                <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 1rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer;" id="ocrProviderIflowLabel">
-                  <input type="radio" name="ocrApiProvider" value="iflow" id="ocrProviderIflow" onchange="onOcrApiProviderChange()">
-                  <span style="font-weight: 500;">💎 iFlow</span>
-                  <span style="font-size: 0.7rem; color: var(--text-muted);">(免费)</span>
+                <label style="flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600;" id="ocrProviderIflowLabel">
+                  <input type="radio" name="ocrApiProvider" value="iflow" id="ocrProviderIflow" onchange="onOcrApiProviderChange()" style="display: none;">
+                  iFlow (免费)
                 </label>
               </div>
               
-              <!-- Gemini OCR 模型选择 -->
               <div id="geminiOcrModelsSection">
-                <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                  <div class="form-group" style="min-width: 160px;">
-                    <label style="font-size: 0.75rem;">👤 普通用户</label>
-                    <select id="geminiNormalOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
-                      <option value="gemini-2.5-flash-lite" selected>Gemini 2.5 Lite</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                <div class="form-row" style="gap: 0.75rem;">
+                  <div class="form-group">
+                    <label class="field-label">普通用户</label>
+                    <select id="geminiNormalOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="gemini-2.5-flash-lite">2.5 Lite</option>
+                      <option value="gemini-2.5-flash">2.5 Flash</option>
                     </select>
                   </div>
-                  <div class="form-group" style="min-width: 160px;">
-                    <label style="font-size: 0.75rem;">⭐ Pro用户</label>
-                    <select id="geminiProOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
-                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Lite</option>
-                      <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash</option>
-                      <option value="gemini-3-flash-preview">Gemini 3 Flash</option>
+                  <div class="form-group">
+                    <label class="field-label">Pro用户</label>
+                    <select id="geminiProOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="gemini-2.5-flash-lite">2.5 Lite</option>
+                      <option value="gemini-2.5-flash">2.5 Flash</option>
                     </select>
                   </div>
-                  <div class="form-group" style="min-width: 160px;">
-                    <label style="font-size: 0.75rem;">💎 KING用户</label>
-                    <select id="geminiKingOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
-                      <option value="gemini-2.5-flash-lite">Gemini 2.5 Lite</option>
-                      <option value="gemini-2.5-flash">Gemini 2.5 Flash</option>
-                      <option value="gemini-3-flash-preview" selected>Gemini 3 Flash</option>
+                  <div class="form-group">
+                    <label class="field-label">KING用户</label>
+                    <select id="geminiKingOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="gemini-3-flash-preview">3.0 Preview</option>
                     </select>
                   </div>
                 </div>
               </div>
               
-              <!-- iFlow OCR 模型选择 -->
               <div id="iflowOcrModelsSection" style="display: none;">
-                <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                  <div class="form-group" style="min-width: 160px;">
-                    <label style="font-size: 0.75rem;">👤 普通用户</label>
-                    <select id="iflowNormalOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
-                      <option value="qwen3-vl-plus" selected>Qwen3 VL Plus</option>
-                      <option value="glm-4.6">GLM-4.6</option>
+                <div class="form-row" style="gap: 0.75rem;">
+                  <div class="form-group">
+                    <label class="field-label">普通/Pro</label>
+                    <select id="iflowNormalOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="qwen3-vl-plus">Qwen3 VL</option>
                     </select>
                   </div>
-                  <div class="form-group" style="min-width: 160px;">
-                    <label style="font-size: 0.75rem;">⭐ Pro用户</label>
-                    <select id="iflowProOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
-                      <option value="qwen3-vl-plus" selected>Qwen3 VL Plus</option>
+                  <div class="form-group">
+                    <label class="field-label">KING用户</label>
+                    <select id="iflowKingOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
                       <option value="glm-4.6">GLM-4.6</option>
-                    </select>
-                  </div>
-                  <div class="form-group" style="min-width: 160px;">
-                    <label style="font-size: 0.75rem;">💎 KING用户</label>
-                    <select id="iflowKingOcrModel" style="width:100%;padding:0.4rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.8rem;">
-                      <option value="qwen3-vl-plus">Qwen3 VL Plus</option>
-                      <option value="glm-4.6" selected>GLM-4.6</option>
                     </select>
                   </div>
                 </div>
               </div>
               
-              <div style="margin-top: 0.75rem;">
-                <span id="ocrConfigStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              <div id="ocrConfigStatus" style="font-size: 0.75rem; text-align: center; margin-top: 0.5rem; height: 1rem;"></div>
+            </div>
+          </div>
+
+          <div class="card" style="padding: 0.75rem 1.25rem; margin-top: 1.5rem; margin-bottom: 1.5rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 1rem;">
+              <div style="flex: 1; position: relative; display: flex; align-items: center;">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="position: absolute; left: 0.75rem; color: var(--text-muted); pointer-events: none; width: 16px; height: 16px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input type="text" id="userSearch" placeholder="搜索用户 ID 或昵称..." 
+                  class="input-field" style="padding-left: 2.5rem; width: 100%; border: none; background: transparent;"
+                  oninput="filterUsers()">
+              </div>
+              <div style="font-size: 0.8125rem; font-weight: 600; color: var(--text-muted); white-space: nowrap; display: flex; align-items: center; gap: 0.5rem;">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="width: 14px; height: 14px;"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>
+                <span id="currentFilter">全部用户</span>
               </div>
             </div>
           </div>
 
-          <div class="action-panel">
-            <div class="form-group" style="flex: 2;">
-              <label>查找用户</label>
-              <input type="text" id="userSearch" placeholder="输入 ID 或昵称进行过滤..." oninput="filterUsers()">
-            </div>
-            <div
-              style="flex: 1; text-align: right; padding-bottom: 0.5rem; font-size: 0.875rem; color: var(--text-muted);">
-              <span id="currentFilter">显示: 全部用户</span>
-            </div>
-          </div>
-
-          <div class="table-card">
-            <div class="table-header">
-              <h3>用户配额状态</h3>
-              <button class="btn btn-sm btn-secondary" onclick="loadUsers()">🔄 刷新</button>
+          <div class="table-container" style="margin-top: 2rem;">
+            <div class="top-bar" style="height: 3.5rem; background: rgba(0,0,0,0.02); padding: 0 1.5rem; border-bottom: 1px solid var(--border-light); border-radius: var(--radius-lg) var(--radius-lg) 0 0;">
+              <div style="font-size: 0.9375rem; font-weight: 700;">用户配额状态</div>
+              <button class="refresh-btn" onclick="loadUsers()" title="刷新列表">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1.00 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+              </button>
             </div>
             <div class="table-wrapper">
               <table>
@@ -842,289 +920,174 @@
 
         <!-- Tab 4: Summary (智能小结) -->
         <div id="tab-summary" class="tab-content">
-          <div class="grid-4">
-            <div class="stat-card">
-              <div class="stat-title">📝 文本小结</div>
-              <div class="stat-value" id="summaryTextCalls">-</div>
-              <div class="stat-desc">累计调用次数</div>
+          <div class="stat-grid">
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: var(--primary-light);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #007AFF;"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <div class="stat-label">文本小结</div>
+              <div class="stat-val" id="summaryTextCalls">-</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-title">🖼️ 图片小结</div>
-              <div class="stat-value" id="summaryImageCalls">-</div>
-              <div class="stat-desc">累计调用次数</div>
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: var(--success-bg);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #34C759;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+              </div>
+              <div class="stat-label">图片小结</div>
+              <div class="stat-val" id="summaryImageCalls">-</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-title">📊 总调用</div>
-              <div class="stat-value" id="summaryTotalCalls">-</div>
-              <div class="stat-desc">智能小结总次数</div>
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: var(--warning-bg);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #FF9500;"><path d="M12 2v20M5 12h14"/></svg>
+              </div>
+              <div class="stat-label">总调用</div>
+              <div class="stat-val" id="summaryTotalCalls">-</div>
             </div>
-            <div class="stat-card">
-              <div class="stat-title">👥 使用人数</div>
-              <div class="stat-value" id="summaryUserCount">-</div>
-              <div class="stat-desc">已使用小结用户</div>
+            <div class="stat-item">
+              <div class="stat-icon-bg" style="background: rgba(175, 82, 222, 0.1);">
+                <svg viewBox="0 0 24 24" class="svg-icon" style="color: #AF52DE;"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+              </div>
+              <div class="stat-label">使用人数</div>
+              <div class="stat-val" id="summaryUserCount">-</div>
             </div>
           </div>
 
-          <!-- 配额配置面板 -->
-          <div class="action-panel" style="background: linear-gradient(to right, #f0fdf4, white); margin-bottom: 1rem;">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: #15803d;">🧠 智能小结配额配置</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">分别设置不同等级用户的每周使用次数和图片上传限制</p>
-              
-              <div style="display: flex; flex-wrap: wrap; gap: 2rem;">
-                <!-- 每周次数限制 -->
-                <div>
-                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">每周使用次数</h4>
-                  <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                    <div class="form-group" style="min-width: 120px;">
-                      <label>👤 普通用户</label>
-                      <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="number" id="summaryNormalLimit" value="2" min="0" max="100" style="width:70px;">
-                        <span style="color:var(--text-muted); font-size: 0.8rem;">次/周</span>
-                      </div>
-                    </div>
-                    <div class="form-group" style="min-width: 120px;">
-                      <label>⭐ Pro用户</label>
-                      <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="number" id="summaryProLimit" value="5" min="0" max="100" style="width:70px;">
-                        <span style="color:var(--text-muted); font-size: 0.8rem;">次/周</span>
-                      </div>
-                    </div>
-                    <div class="form-group" style="min-width: 120px;">
-                      <label>💎 KING用户</label>
-                      <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="number" id="summaryKingLimit" value="999" min="0" max="9999" style="width:80px;">
-                        <span style="color:var(--text-muted); font-size: 0.8rem;">次/周</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- 图片数量限制 -->
-                <div>
-                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">图片上传上限</h4>
-                  <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                    <div class="form-group" style="min-width: 120px;">
-                      <label>👤 普通用户</label>
-                      <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="number" id="summaryNormalImages" value="1" min="1" max="10" style="width:60px;">
-                        <span style="color:var(--text-muted); font-size: 0.8rem;">张</span>
-                      </div>
-                    </div>
-                    <div class="form-group" style="min-width: 120px;">
-                      <label>⭐ Pro用户</label>
-                      <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="number" id="summaryProImages" value="3" min="1" max="10" style="width:60px;">
-                        <span style="color:var(--text-muted); font-size: 0.8rem;">张</span>
-                      </div>
-                    </div>
-                    <div class="form-group" style="min-width: 120px;">
-                      <label>💎 KING用户</label>
-                      <div style="display:flex;align-items:center;gap:0.5rem;">
-                        <input type="number" id="summaryKingImages" value="5" min="1" max="10" style="width:60px;">
-                        <span style="color:var(--text-muted); font-size: 0.8rem;">张</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                <!-- API源选择和模型配置 -->
-                <div style="width: 100%; margin-top: 0.5rem;">
-                  <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--text-main);">🔌 API源选择</h4>
-                  <p style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.75rem;">选择智能小结使用的API提供商</p>
-                  
-                  <!-- API源开关 -->
-                  <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem;">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s;" id="providerGeminiLabel">
-                      <input type="radio" name="apiProvider" value="gemini" id="providerGemini" onchange="onApiProviderChange()" checked>
-                      <span style="font-weight: 500;">🌟 Gemini</span>
-                      <span style="font-size: 0.7rem; color: var(--text-muted);">Google AI</span>
-                    </label>
-                    <label style="display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.25rem; border: 2px solid var(--border); border-radius: 0.5rem; cursor: pointer; transition: all 0.2s;" id="providerIflowLabel">
-                      <input type="radio" name="apiProvider" value="iflow" id="providerIflow" onchange="onApiProviderChange()">
-                      <span style="font-weight: 500;">💎 iFlow</span>
-                      <span style="font-size: 0.7rem; color: var(--text-muted);">心流 (免费)</span>
-                    </label>
-                  </div>
-                  
-                  <!-- Gemini 模型选择 -->
-                  <div id="geminiModelsSection">
-                    <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: var(--primary);">🤖 Gemini 模型配置</h4>
-                    <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                      <div class="form-group" style="min-width: 180px;">
-                        <label>👤 普通用户</label>
-                        <select id="geminiNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
-                          <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                          <option value="gemini-3-flash-preview">Gemini 3 Flash (最新预览)</option>
-                        </select>
-                      </div>
-                      <div class="form-group" style="min-width: 180px;">
-                        <label>⭐ Pro用户</label>
-                        <select id="geminiProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
-                          <option value="gemini-2.5-flash" selected>Gemini 2.5 Flash (性能均衡)</option>
-                          <option value="gemini-3-flash-preview">Gemini 3 Flash (最新预览)</option>
-                        </select>
-                      </div>
-                      <div class="form-group" style="min-width: 180px;">
-                        <label>💎 KING用户</label>
-                        <select id="geminiKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                          <option value="gemini-2.0-flash">Gemini 2.0 Flash (经典稳定)</option>
-                          <option value="gemini-2.5-flash">Gemini 2.5 Flash (性能均衡)</option>
-                          <option value="gemini-3-flash-preview" selected>Gemini 3 Flash (最新预览)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <!-- iFlow 模型选择 -->
-                  <div id="iflowModelsSection" style="display: none;">
-                    <h4 style="font-size: 0.875rem; font-weight: 600; margin-bottom: 0.75rem; color: #15803d;">🤖 iFlow 模型配置</h4>
-                    <div style="display:flex; gap: 1rem; flex-wrap: wrap;">
-                      <div class="form-group" style="min-width: 180px;">
-                        <label>👤 普通用户</label>
-                        <select id="iflowNormalModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                          <option value="qwen3-max" selected>Qwen3 Max (通义千问)</option>
-                          <option value="kimi-k2-0905">Kimi K2 (Moonshot)</option>
-                        </select>
-                      </div>
-                      <div class="form-group" style="min-width: 180px;">
-                        <label>⭐ Pro用户</label>
-                        <select id="iflowProModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                          <option value="qwen3-max" selected>Qwen3 Max (通义千问)</option>
-                          <option value="kimi-k2-0905">Kimi K2 (Moonshot)</option>
-                        </select>
-                      </div>
-                      <div class="form-group" style="min-width: 180px;">
-                        <label>💎 KING用户</label>
-                        <select id="iflowKingModel" style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:0.5rem;font-size:0.875rem;">
-                          <option value="qwen3-max">Qwen3 Max (通义千问)</option>
-                          <option value="kimi-k2-0905" selected>Kimi K2 (Moonshot)</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          <div class="form-row" style="grid-template-columns: 2fr 3fr;">
+            <!-- 配额配置面板 -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-title" style="color: var(--success); margin-bottom: 1.25rem;">
+                <svg viewBox="0 0 24 24" class="svg-icon"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+                配额设置
               </div>
               
-              <div style="margin-top: 1.5rem; display: flex; gap: 1rem; align-items: center;">
-                <button class="btn btn-success" onclick="saveSummaryConfig()">💾 保存配置</button>
-                <span id="summaryConfigStatus" style="font-size:0.8rem;color:var(--text-muted);"></span>
+              <div class="form-group" style="margin-bottom: 1rem;">
+                <label class="field-label">每周次数 (普通/Pro/KING)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                  <input type="number" id="summaryNormalLimit" value="2" class="input-field" title="普通">
+                  <input type="number" id="summaryProLimit" value="5" class="input-field" title="Pro">
+                  <input type="number" id="summaryKingLimit" value="999" class="input-field" title="KING">
+                </div>
               </div>
-            </div>
-          </div>
 
-          <!-- API 提供商说明 -->
-          <div class="action-panel" style="background: linear-gradient(to right, #fef3c7, white);">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: #d97706;">⚡ API 配置说明</h3>
-              <p style="font-size: 0.875rem; color: var(--text-muted); line-height: 1.6;">
-                智能小结功能支持以下 API 提供商（按优先级自动切换）：<br>
-                1. <strong>七牛云 AI</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">QINIU_AI_API_KEY</code><br>
-                2. <strong>Google Gemini</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">SUMMARY_GEMINI_API_KEY</code><br>
-                3. <strong>心流平台 (iFlow)</strong> - 环境变量: <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">IFLOW_AI_API_KEY</code> <span style="background:#dcfce7;color:#15803d;padding:0.125rem 0.375rem;border-radius:0.25rem;font-size:0.75rem;">免费API</span><br>
-                <br>
-                系统会按上述顺序尝试调用，如当前API失败会自动切换到下一个。心流平台是免费备选方案。
-              </p>
+              <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="field-label">图片上限 (普通/Pro/KING)</label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem;">
+                  <input type="number" id="summaryNormalImages" value="1" class="input-field">
+                  <input type="number" id="summaryProImages" value="3" class="input-field">
+                  <input type="number" id="summaryKingImages" value="5" class="input-field">
+                </div>
+              </div>
+
+              <button class="btn btn-primary" onclick="saveSummaryConfig()" style="width: 100%;">
+                保存配置
+              </button>
+              <div id="summaryConfigStatus" style="font-size: 0.75rem; text-align: center; margin-top: 0.5rem; height: 1rem;"></div>
+            </div>
+
+            <!-- API 配置面板 -->
+            <div class="card" style="margin-bottom: 0;">
+              <div class="card-title" style="color: var(--primary); margin-bottom: 1rem;">
+                <svg viewBox="0 0 24 24" class="svg-icon"><path d="M18.36 6.64a9 9 0 1 1-12.73 0"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+                API 引擎选择
+              </div>
+              
+              <div style="display: flex; gap: 0.5rem; margin-bottom: 1.25rem; background: #F5F5F7; padding: 4px; border-radius: 8px;">
+                <label style="flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600;" id="providerGeminiLabel">
+                  <input type="radio" name="apiProvider" value="gemini" id="providerGemini" onchange="onApiProviderChange()" checked style="display: none;">
+                  Gemini (Google)
+                </label>
+                <label style="flex: 1; text-align: center; padding: 6px; border-radius: 6px; cursor: pointer; font-size: 0.8125rem; font-weight: 600;" id="providerIflowLabel">
+                  <input type="radio" name="apiProvider" value="iflow" id="providerIflow" onchange="onApiProviderChange()" style="display: none;">
+                  iFlow (心流)
+                </label>
+              </div>
+
+              <div id="geminiModelsSection">
+                <div class="form-row" style="gap: 0.75rem; margin-bottom: 0;">
+                  <div class="form-group">
+                    <label class="field-label">普通用户</label>
+                    <select id="geminiNormalModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="gemini-2.0-flash">2.0 Flash</option>
+                      <option value="gemini-2.5-flash">2.5 Flash</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="field-label">Pro/KING</label>
+                    <select id="geminiProModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="gemini-2.5-flash">2.5 Flash</option>
+                      <option value="gemini-3-flash-preview">3.0 Preview</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div id="iflowModelsSection" style="display: none;">
+                <div class="form-row" style="gap: 0.75rem; margin-bottom: 0;">
+                  <div class="form-group">
+                    <label class="field-label">普通/Pro</label>
+                    <select id="iflowNormalModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="qwen3-max">Qwen3 Max</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="field-label">KING用户</label>
+                    <select id="iflowKingModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="kimi-k2-0905">Kimi K2</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
           <!-- 提示词槽位管理 -->
-          <div class="action-panel" style="background: linear-gradient(to right, #ede9fe, white); margin-top: 1.5rem;">
-            <div style="flex:1;">
-              <h3 class="panel-title" style="color: #7c3aed;">📝 提示词槽位管理</h3>
-              <p style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
-                预设4个提示词模板，调用API时可以通过 <code style="background:#f3f4f6;padding:0.125rem 0.375rem;border-radius:0.25rem;">promptSlot</code> 参数指定使用哪个槽位（slot1-slot4）
-              </p>
-              
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
-                <!-- 槽位1 -->
-                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                    <span class="badge badge-primary">槽位 1</span>
-                    <span id="slot1Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">名称</label>
-                    <input type="text" id="slot1Name" placeholder="如：肾功能分析" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">描述</label>
-                    <input type="text" id="slot1Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.75rem;">
-                    <label style="font-size: 0.75rem;">提示词内容</label>
-                    <textarea id="slot1Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
-                  </div>
-                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot1')">保存槽位1</button>
+          <div class="card" style="margin-top: 1.5rem;">
+            <div class="card-header">
+              <div class="card-title" style="color: #A855F7;">
+                <svg viewBox="0 0 24 24" class="svg-icon"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                提示词槽位 (Slot 1-4)
+              </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+              <!-- 槽位简化 -->
+              <div class="generator-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span class="badge badge-primary">Slot 1</span>
+                  <input type="text" id="slot1Name" placeholder="槽位名称" class="input-field" style="border: none; background: transparent; font-weight: 700; text-align: right; padding: 0;">
                 </div>
+                <textarea id="slot1Prompt" rows="3" class="input-field" style="width: 100%; font-size: 0.8125rem; margin-bottom: 0.75rem;" placeholder="输入提示词内容..."></textarea>
+                <button class="btn btn-primary" style="width: 100%; font-size: 0.75rem;" onclick="savePromptSlot('slot1')">保存槽位 1</button>
+              </div>
 
-                <!-- 槽位2 -->
-                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                    <span class="badge badge-primary">槽位 2</span>
-                    <span id="slot2Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">名称</label>
-                    <input type="text" id="slot2Name" placeholder="如：血常规分析" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">描述</label>
-                    <input type="text" id="slot2Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.75rem;">
-                    <label style="font-size: 0.75rem;">提示词内容</label>
-                    <textarea id="slot2Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
-                  </div>
-                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot2')">保存槽位2</button>
+              <div class="generator-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span class="badge badge-primary">Slot 2</span>
+                  <input type="text" id="slot2Name" placeholder="槽位名称" class="input-field" style="border: none; background: transparent; font-weight: 700; text-align: right; padding: 0;">
                 </div>
+                <textarea id="slot2Prompt" rows="3" class="input-field" style="width: 100%; font-size: 0.8125rem; margin-bottom: 0.75rem;" placeholder="输入提示词内容..."></textarea>
+                <button class="btn btn-primary" style="width: 100%; font-size: 0.75rem;" onclick="savePromptSlot('slot2')">保存槽位 2</button>
+              </div>
 
-                <!-- 槽位3 -->
-                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                    <span class="badge badge-primary">槽位 3</span>
-                    <span id="slot3Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">名称</label>
-                    <input type="text" id="slot3Name" placeholder="如：尿常规分析" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">描述</label>
-                    <input type="text" id="slot3Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.75rem;">
-                    <label style="font-size: 0.75rem;">提示词内容</label>
-                    <textarea id="slot3Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
-                  </div>
-                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot3')">保存槽位3</button>
+              <div class="generator-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span class="badge badge-primary">Slot 3</span>
+                  <input type="text" id="slot3Name" placeholder="槽位名称" class="input-field" style="border: none; background: transparent; font-weight: 700; text-align: right; padding: 0;">
                 </div>
+                <textarea id="slot3Prompt" rows="3" class="input-field" style="width: 100%; font-size: 0.8125rem; margin-bottom: 0.75rem;" placeholder="输入提示词内容..."></textarea>
+                <button class="btn btn-primary" style="width: 100%; font-size: 0.75rem;" onclick="savePromptSlot('slot3')">保存槽位 3</button>
+              </div>
 
-                <!-- 槽位4 -->
-                <div class="prompt-slot-card" style="background: white; border: 1px solid var(--border); border-radius: 0.5rem; padding: 1rem;">
-                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
-                    <span class="badge badge-primary">槽位 4</span>
-                    <span id="slot4Status" style="font-size: 0.7rem; color: var(--text-muted);">未设置</span>
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">名称</label>
-                    <input type="text" id="slot4Name" placeholder="如：综合体检" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.5rem;">
-                    <label style="font-size: 0.75rem;">描述</label>
-                    <input type="text" id="slot4Desc" placeholder="简短描述此提示词用途" style="font-size: 0.875rem;">
-                  </div>
-                  <div class="form-group" style="margin-bottom: 0.75rem;">
-                    <label style="font-size: 0.75rem;">提示词内容</label>
-                    <textarea id="slot4Prompt" rows="4" placeholder="输入系统提示词..." style="width:100%;border:1px solid var(--border);border-radius:0.5rem;padding:0.5rem;font-size:0.8rem;resize:vertical;"></textarea>
-                  </div>
-                  <button class="btn btn-sm btn-primary" onclick="savePromptSlot('slot4')">保存槽位4</button>
+              <div class="generator-box">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                  <span class="badge badge-primary">Slot 4</span>
+                  <input type="text" id="slot4Name" placeholder="槽位名称" class="input-field" style="border: none; background: transparent; font-weight: 700; text-align: right; padding: 0;">
                 </div>
+                <textarea id="slot4Prompt" rows="3" class="input-field" style="width: 100%; font-size: 0.8125rem; margin-bottom: 0.75rem;" placeholder="输入提示词内容..."></textarea>
+                <button class="btn btn-primary" style="width: 100%; font-size: 0.75rem;" onclick="savePromptSlot('slot4')">保存槽位 4</button>
               </div>
             </div>
           </div>
+        </div>
         </div>
 
       </div>
@@ -1188,6 +1151,17 @@
       // Update sidebar state
       const btn = document.querySelector(`button[onclick="switchTab('${tabId}')"]`);
       if (btn) btn.classList.add('active');
+    }
+
+    // Generator Toggle logic
+    function toggleGenerator(type, btn) {
+      // Toggle buttons
+      btn.parentElement.querySelectorAll('.type-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      // Toggle forms
+      document.querySelectorAll('.gen-form').forEach(form => form.classList.add('hidden'));
+      document.getElementById('gen-' + type).classList.remove('hidden');
     }
 
     function showDashboard() {
@@ -1292,20 +1266,23 @@
             return `
             <tr>
               <td>
-                <div style="font-weight:500;">${new Date(log.timestamp).toLocaleDateString()}</div>
-                <div style="font-size:0.75rem;color:var(--text-muted);">${new Date(log.timestamp).toLocaleTimeString()}</div>
+                <div style="font-weight:700; color: var(--text-main);">${new Date(log.timestamp).toLocaleDateString()}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted); font-weight: 500;">${new Date(log.timestamp).toLocaleTimeString()}</div>
               </td>
               <td>
-                <div style="font-weight:600;color:var(--primary);">${getUserDisplayName(log)}</div>
-                <div style="font-size:0.75rem;color:var(--text-muted);">${log.ip}</div>
+                <div style="font-weight:700;color:var(--primary);">${getUserDisplayName(log)}</div>
+                <div style="font-size:0.75rem;color:var(--text-muted); font-family: 'SF Mono', monospace;">${log.ip}</div>
               </td>
               <td><span class="badge badge-primary">${log.apiType}</span></td>
               <td>
-                <div style="font-weight:600;">${log.userTotalCalls || log.cumulativeCount} 次</div>
-                <div style="font-size:0.7rem;color:var(--text-muted);">本月 ${log.userMonthCalls || '-'}</div>
+                <div style="font-weight:700; color: var(--text-main);">${log.userTotalCalls || log.cumulativeCount} 次</div>
+                <div style="font-size:0.7rem;color:var(--text-muted); font-weight: 600;">本月 ${log.userMonthCalls || '-'}</div>
               </td>
-              <td style="font-size:0.75rem;color:var(--text-muted);">
-                ${locationDetail || log.ip}
+              <td style="font-size:0.75rem;color:var(--text-muted); font-weight: 500;">
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                  <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  ${locationDetail || log.ip}
+                </div>
               </td>
             </tr>
           `}).join('');
@@ -1363,10 +1340,10 @@
     }
 
     async function clearAllLogs() {
-      if (!confirm('⚠️ 确定要清除所有使用记录吗？\n\n这将：\n• 删除所有调用日志\n• 重置用户统计\n• 无法恢复！\n\n请确认操作。')) {
+      if (!confirm('确定要清除所有使用记录吗？\n\n这将：\n• 删除所有调用日志\n• 重置用户统计\n• 无法恢复！\n\n请确认操作。')) {
         return;
       }
-      if (!confirm('🔴 最后确认：真的要清除所有数据吗？')) {
+      if (!confirm('最后确认：真的要清除所有数据吗？')) {
         return;
       }
 
@@ -1378,7 +1355,7 @@
         const data = await res.json();
 
         if (data.success) {
-          alert(`✅ 已清除 ${data.data.deletedCount} 条记录，统计已重置。`);
+          alert(`已清除 ${data.data.deletedCount} 条记录，统计已重置。`);
           loadStats();
           loadLogs(1);
           clearUserSearch();
@@ -1435,15 +1412,23 @@
               <td>${quotaDisplay}</td>
               <td>
                 <div style="display:flex;align-items:center;">
-                    <span id="remark-${code}" style="margin-right:0.5rem;">${remarkDisplay}</span>
-                    <button class="btn btn-sm btn-secondary" onclick="editCodeRemark('${code}')" style="padding: 2px 6px; font-size: 10px;">✎</button>
+                    <span id="remark-${code}" style="margin-right:0.5rem; font-weight: 500;">${remarkDisplay}</span>
+                    <button class="btn btn-sm btn-secondary" onclick="editCodeRemark('${code}')" style="padding: 4px; width: 24px; height: 24px; border-radius: 8px;">
+                      <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    </button>
                 </div>
               </td>
-              <td>${new Date(info.createTime).toLocaleDateString()}</td>
+              <td><div style="font-weight: 600; color: var(--text-muted);">${new Date(info.createTime).toLocaleDateString()}</div></td>
               <td>
-                <div style="display:flex;gap:0.25rem;">
-                    <button class="btn btn-sm btn-secondary" onclick="navigator.clipboard.writeText('${code}')">复制</button>
-                    <button class="btn btn-sm btn-danger" onclick="deleteCode('${code}')">删除</button>
+                <div style="display:flex;gap:0.5rem;">
+                    <button class="btn btn-sm btn-secondary" onclick="navigator.clipboard.writeText('${code}')" style="border-radius: 10px;">
+                      <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                      复制
+                    </button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCode('${code}')" style="border-radius: 10px;">
+                      <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                      删除
+                    </button>
                 </div>
               </td>
             </tr>
@@ -1498,7 +1483,7 @@
 
         const data = await res.json();
         if (data.success) {
-          alert(`🎉 成功生成 ${data.data.codes.length} 个无限畅享兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
+          alert(`成功生成 ${data.data.codes.length} 个无限畅享兑换码！\n\n兑换码：\n${data.data.codes.join('\n')}`);
           document.getElementById('unlimitedCodeRemark').value = '';
           loadCodes();
         } else {
@@ -1654,9 +1639,9 @@
 
         const data = await res.json();
         if (data.success) {
-          statusEl.textContent = '✅ 已保存';
+          statusEl.textContent = '已保存';
           statusEl.style.color = '#059669';
-          ocrStatusEl.textContent = '✅ OCR配置已保存';
+          ocrStatusEl.textContent = 'OCR配置已保存';
           ocrStatusEl.style.color = '#059669';
           // 刷新用户列表以显示新的限额
           loadUsers();
@@ -1666,15 +1651,15 @@
             ocrStatusEl.textContent = '';
           }, 3000);
         } else {
-          statusEl.textContent = '❌ ' + (data.message || '保存失败');
+          statusEl.textContent = (data.message || '保存失败');
           statusEl.style.color = '#dc2626';
-          ocrStatusEl.textContent = '❌ 保存失败';
+          ocrStatusEl.textContent = '保存失败';
           ocrStatusEl.style.color = '#dc2626';
         }
       } catch (err) {
-        statusEl.textContent = '❌ 保存失败: ' + err.message;
+        statusEl.textContent = '保存失败: ' + err.message;
         statusEl.style.color = '#dc2626';
-        ocrStatusEl.textContent = '❌ 保存失败';
+        ocrStatusEl.textContent = '保存失败';
         ocrStatusEl.style.color = '#dc2626';
       }
     }
@@ -1740,21 +1725,21 @@
       switch (type) {
         case 'unlimited':
           filtered = allUsers.filter(u => u.isUnlimited);
-          filterLabel = '💎 无限畅享用户';
+          filterLabel = '无限畅享用户';
           break;
         case 'pro':
           // Pro用户：通过isPro字段判断
           filtered = allUsers.filter(u => !u.isUnlimited && u.isPro);
-          filterLabel = '⭐ Pro 用户';
+          filterLabel = 'Pro 用户';
           break;
         case 'normal':
           // 普通用户：非无限、非Pro
           filtered = allUsers.filter(u => !u.isUnlimited && !u.isPro);
-          filterLabel = '👤 普通用户';
+          filterLabel = '普通用户';
           break;
         default:
           filtered = allUsers;
-          filterLabel = '📊 全部用户';
+          filterLabel = '全部用户';
       }
 
       const fLabel = document.getElementById('currentFilter');
@@ -1795,33 +1780,38 @@
 
         return `
         <tr>
-          <td style="font-family:monospace;font-size:0.75rem;">${user.id}</td>
-          <td style="font-weight:500;">${user.nickname || '未命名'}</td>
-          <td>${weeklyUsage} / ${weeklyLimit}</td>
-          <td><span style="color:${summaryWeeklyUsage > 0 ? '#7c3aed' : 'var(--text-muted)'}">${summaryWeeklyUsage} / ${summaryWeeklyLimit}</span></td>
-          <td><span style="font-weight:600;color:${(user.extraQuota || 0) > 0 ? 'var(--primary)' : 'inherit'}">${user.extraQuota || 0}</span></td>
-          <td><span style="font-weight:600;color:${totalUsage > 0 ? '#059669' : 'inherit'}">${totalUsage}</span></td>
+          <td style="font-family:'SF Mono', monospace; font-size:0.75rem; font-weight: 600; color: var(--text-muted);">${user.id}</td>
+          <td style="font-weight:700; color: var(--text-main);">${user.nickname || '未命名'}</td>
+          <td style="font-weight:600;">${weeklyUsage} / ${weeklyLimit}</td>
+          <td><span style="font-weight: 700; color:${summaryWeeklyUsage > 0 ? '#A855F7' : 'var(--text-muted)'}">${summaryWeeklyUsage} / ${summaryWeeklyLimit}</span></td>
+          <td><span style="font-weight:700;color:${(user.extraQuota || 0) > 0 ? 'var(--primary)' : 'inherit'}">${user.extraQuota || 0}</span></td>
+          <td><span style="font-weight:700;color:${totalUsage > 0 ? 'var(--success)' : 'inherit'}">${totalUsage}</span></td>
           <td>
-            <div style="display:flex;align-items:center;gap:0.25rem;">
-              <span id="user-remark-${user.id}" style="font-size:0.8rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${user.remark || ''}">${remarkDisplay}</span>
-              <button class="btn btn-sm btn-secondary" onclick="editUserRemark('${user.id}')" style="padding:2px 6px;font-size:10px;">✎</button>
+            <div style="display:flex;align-items:center;gap:0.5rem;">
+              <span id="user-remark-${user.id}" style="font-size:0.8rem;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight: 500;" title="${user.remark || ''}">${remarkDisplay}</span>
+              <button class="btn btn-sm btn-secondary" onclick="editUserRemark('${user.id}')" style="padding:4px; width: 24px; height: 24px; border-radius: 8px;">
+                <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+              </button>
             </div>
           </td>
           <td>${statusBadge}</td>
           <td>
             <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
-              <button class="btn btn-sm btn-secondary" onclick="addUserQuota('${user.id}')">
-                +额度
+              <button class="btn btn-sm btn-secondary" onclick="addUserQuota('${user.id}')" style="border-radius: 10px;">
+                <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M12 5v14M5 12h14"/></svg>
+                额度
               </button>
               ${!user.isUnlimited ? `
-              <button class="btn btn-sm" style="background:${user.isPro ? '#ef4444' : '#f59e0b'};color:white;" 
+              <button class="btn btn-sm" style="background:${user.isPro ? 'var(--danger-bg)' : 'var(--warning-bg)'}; color:${user.isPro ? 'var(--danger)' : 'var(--warning)'}; border-radius: 10px; font-weight: 700;" 
                 onclick="togglePro('${user.id}', ${!user.isPro})">
-                ${user.isPro ? '-Pro' : '+Pro'}
+                <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
+                ${user.isPro ? '降级' : '升级'}
               </button>
               ` : ''}
-              <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger-solid' : 'btn-success'}" 
-                onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})">
-                ${user.isUnlimited ? 'Stop' : 'Ultra'}
+              <button class="btn btn-sm ${user.isUnlimited ? 'btn-danger' : 'btn-success'}" 
+                onclick="toggleUnlimited('${user.id}', ${!user.isUnlimited})" style="border-radius: 10px; font-weight: 700;">
+                <svg viewBox="0 0 24 24" class="icon-svg" style="width: 14px; height: 14px;"><path d="M6 3h12l4 6-10 12L2 9z"/></svg>
+                ${user.isUnlimited ? '取消' : '无限'}
               </button>
             </div>
           </td>
@@ -1874,7 +1864,7 @@
         });
         const data = await res.json();
         if (data.success) {
-          alert(`✅ ${data.message}\n\n该用户的额外额度变为: ${data.data.newExtraQuota}`);
+          alert(`${data.message}\n\n该用户的额外额度变为: ${data.data.newExtraQuota}`);
           loadUsers();
         } else {
           alert('操作失败: ' + (data.message || '未知错误'));
@@ -2073,15 +2063,15 @@
         const data = await res.json();
         
         if (data.success) {
-          statusEl.textContent = '✅ 配置已保存';
+          statusEl.textContent = '配置已保存';
           statusEl.style.color = 'var(--success)';
           setTimeout(() => { statusEl.textContent = ''; }, 3000);
         } else {
-          statusEl.textContent = '❌ 保存失败: ' + (data.message || '未知错误');
+          statusEl.textContent = '保存失败: ' + (data.message || '未知错误');
           statusEl.style.color = 'var(--danger)';
         }
       } catch (err) {
-        statusEl.textContent = '❌ 保存失败: ' + err.message;
+        statusEl.textContent = '保存失败: ' + err.message;
         statusEl.style.color = 'var(--danger)';
       }
     }
@@ -2101,18 +2091,7 @@
             const slotData = data.prompts[slot] || {};
             
             document.getElementById(`${slot}Name`).value = slotData.name || '';
-            document.getElementById(`${slot}Desc`).value = slotData.description || '';
             document.getElementById(`${slot}Prompt`).value = slotData.prompt || '';
-            
-            // 更新状态标签
-            const statusEl = document.getElementById(`${slot}Status`);
-            if (slotData.prompt && slotData.prompt.trim()) {
-              statusEl.textContent = '✅ 已配置';
-              statusEl.style.color = 'var(--success)';
-            } else {
-              statusEl.textContent = '未设置';
-              statusEl.style.color = 'var(--text-muted)';
-            }
           }
         }
       } catch (err) {
@@ -2122,12 +2101,7 @@
 
     async function savePromptSlot(slotId) {
       const name = document.getElementById(`${slotId}Name`).value.trim();
-      const description = document.getElementById(`${slotId}Desc`).value.trim();
       const prompt = document.getElementById(`${slotId}Prompt`).value;
-
-      const statusEl = document.getElementById(`${slotId}Status`);
-      statusEl.textContent = '保存中...';
-      statusEl.style.color = 'var(--text-muted)';
 
       try {
         const res = await fetch('/api/admin/summary/prompts', {
@@ -2139,7 +2113,7 @@
           body: JSON.stringify({
             slot: slotId,
             name: name || `槽位${slotId.replace('slot', '')}`,
-            description: description || (prompt ? '已设置' : '未设置'),
+            description: name || '',
             prompt: prompt
           })
         });
@@ -2147,23 +2121,12 @@
         const data = await res.json();
         
         if (data.success) {
-          if (prompt && prompt.trim()) {
-            statusEl.textContent = '✅ 已保存';
-            statusEl.style.color = 'var(--success)';
-          } else {
-            statusEl.textContent = '已清空';
-            statusEl.style.color = 'var(--text-muted)';
-          }
           setTimeout(() => {
-            loadSummaryPrompts(); // 刷新显示
+            loadSummaryPrompts();
           }, 1500);
-        } else {
-          statusEl.textContent = '❌ 保存失败';
-          statusEl.style.color = 'var(--danger)';
         }
       } catch (err) {
-        statusEl.textContent = '❌ 失败: ' + err.message;
-        statusEl.style.color = 'var(--danger)';
+        console.error(err);
       }
     }
   </script>
