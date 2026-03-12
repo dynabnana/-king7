@@ -1135,8 +1135,44 @@
     let authToken = localStorage.getItem('adminToken');
     let logsPage = 1;
 
+    // ====== 本地预览模式 ======
+    const isLocalPreview = location.protocol === 'file:';
+    if (isLocalPreview) {
+      // 拦截 fetch，本地模式下所有 API 请求静默返回空数据
+      const _origFetch = window.fetch;
+      window.fetch = function(url, opts) {
+        // 如果是 API 请求，返回模拟的空数据
+        if (typeof url === 'string' && (url.startsWith('/api') || url.startsWith('http'))) {
+          console.log('[Local Preview] Blocked API call:', url);
+          return Promise.resolve(new Response(JSON.stringify({
+            success: true,
+            data: { logs: [], pagination: { total: 0, totalPages: 1 }, totalCalls: 0, totalUsers: 0, todayCalls: 0, monthCalls: 0 },
+            stats: { textSummary: 0, imageSummary: 0, totalCalls: 0 },
+            userCount: 0,
+            config: {},
+            prompts: {}
+          }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        return _origFetch.apply(this, arguments);
+      };
+      // 拦截 alert/confirm，本地模式下不弹窗（但 console 会打印）
+      const _origAlert = window.alert;
+      window.alert = function(msg) {
+        console.log('[Local Preview] alert suppressed:', msg);
+      };
+      // confirm 默认返回 false，避免误操作
+      const _origConfirm = window.confirm;
+      window.confirm = function(msg) {
+        console.log('[Local Preview] confirm suppressed:', msg);
+        return false;
+      };
+    }
+
     // 初始化
-    if (authToken) {
+    if (isLocalPreview) {
+      // 本地预览模式：直接显示 dashboard
+      showDashboard();
+    } else if (authToken) {
       showDashboard();
       loadAllData();
     }
