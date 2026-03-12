@@ -597,7 +597,8 @@ const checkAndConsumeQuota = async (userId, nickname) => {
       isUnlimited: false,
       isPro: false,  // Pro用户（通过兑换码获得，每周10次额度）
       totalUsage: 0, // 累计使用次数（从2026年第1周开始统计）
-      nickname: nickname || "未命名"
+      nickname: nickname || "未命名",
+      firstSeenAt: new Date().toISOString()  // 首次使用时间
     };
   }
 
