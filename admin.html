@@ -857,8 +857,14 @@
               <div id="iflowOcrModelsSection" style="display: none;">
                 <div class="form-row" style="gap: 0.75rem;">
                   <div class="form-group">
-                    <label class="field-label">普通/Pro</label>
+                    <label class="field-label">普通用户</label>
                     <select id="iflowNormalOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="qwen3-vl-plus">Qwen3 VL</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="field-label">Pro用户</label>
+                    <select id="iflowProOcrModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
                       <option value="qwen3-vl-plus">Qwen3 VL</option>
                     </select>
                   </div>
@@ -1011,8 +1017,15 @@
                     </select>
                   </div>
                   <div class="form-group">
-                    <label class="field-label">Pro/KING</label>
+                    <label class="field-label">Pro用户</label>
                     <select id="geminiProModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="gemini-2.5-flash">2.5 Flash</option>
+                      <option value="gemini-3-flash-preview">3.0 Preview</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="field-label">KING用户</label>
+                    <select id="geminiKingModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
                       <option value="gemini-2.5-flash">2.5 Flash</option>
                       <option value="gemini-3-flash-preview">3.0 Preview</option>
                     </select>
@@ -1023,8 +1036,14 @@
               <div id="iflowModelsSection" style="display: none;">
                 <div class="form-row" style="gap: 0.75rem; margin-bottom: 0;">
                   <div class="form-group">
-                    <label class="field-label">普通/Pro</label>
+                    <label class="field-label">普通用户</label>
                     <select id="iflowNormalModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
+                      <option value="qwen3-max">Qwen3 Max</option>
+                    </select>
+                  </div>
+                  <div class="form-group">
+                    <label class="field-label">Pro用户</label>
+                    <select id="iflowProModel" class="input-field" style="width: 100%; font-size: 0.75rem;">
                       <option value="qwen3-max">Qwen3 Max</option>
                     </select>
                   </div>
@@ -1097,6 +1116,7 @@
   <script>
     let authToken = localStorage.getItem('adminToken');
     let logsPage = 1;
+    let currentLogSearch = '';
 
     // ====== 本地预览模式 ======
     const isLocalPreview = location.protocol === 'file:';
@@ -1212,7 +1232,7 @@
     }
 
     /* --- Logs --- */
-    let currentLogSearch = '';
+    // currentLogSearch already declared at top of script
 
     async function loadLogs(page = 1, searchUser = '') {
       logsPage = page;
