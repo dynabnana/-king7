@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Kidney Record Converter</title>
+    <title>检查单识别助手</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- SheetJS for Excel processing -->
@@ -11,8 +11,23 @@
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+      :root {
+        color-scheme: light;
+      }
+      html {
+        background: #f5f7fb;
+      }
       body {
-        background-color: #f3f4f6;
+        margin: 0;
+        background:
+          radial-gradient(circle at top left, rgba(191, 219, 254, 0.75), transparent 28%),
+          radial-gradient(circle at top right, rgba(167, 243, 208, 0.5), transparent 24%),
+          linear-gradient(180deg, #f8fafc 0%, #eef2f7 52%, #f7f9fc 100%);
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      #root {
+        min-height: 100vh;
       }
       .loader {
         border-top-color: #3B82F6;
