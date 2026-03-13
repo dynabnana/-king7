@@ -21,9 +21,10 @@ const upload = multer({
 });
 
 const port = process.env.PORT || 3000;
+const host = process.env.HOST || "0.0.0.0";
 
 // 管理后台密码（可通过环境变量覆盖）
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "600606";
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.PASSWORD || "600606";
 
 // 数据存储目录（Zeabur 挂载硬盘路径）
 const DATA_DIR = process.env.DATA_DIR || "/data";
@@ -3200,11 +3201,12 @@ app.get("*", (req, res) => {
 // 1. Zeabur/本地开发：直接运行 node server.mjs，process.env.VERCEL 为空，执行 app.listen 启动端口监听
 // 2. Vercel：作为 Serverless 函数被导入，process.env.VERCEL 为 true，跳过 app.listen，由 Vercel 托管
 if (!process.env.VERCEL) {
-  app.listen(port, () => {
-    console.log(`Server listening on port ${port}`);
+  app.listen(port, host, () => {
+    console.log(`Server listening on ${host}:${port}`);
     console.log(
       `Environment API Keys configured: ${ENV_API_KEYS.length > 0 ? ENV_API_KEYS.length : "None (will use request header)"}`
     );
+    console.log(`[Redis] ${USE_REDIS ? "Configured" : "Not configured"}`);
     console.log(`[Memory] Idle cleanup: ${IDLE_THRESHOLD_MS / 1000}s light, ${DEEP_CLEAN_THRESHOLD_MS / 1000}s deep`);
     console.log(`[Memory] Initial heap: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
   });
