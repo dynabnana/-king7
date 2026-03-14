@@ -68,7 +68,9 @@ interface ApiStats {
 const SUPPORTED_MODELS = {
   'gemini-2.5-flash': { name: 'Flash', fullName: 'Gemini 2.5 Flash', description: '均衡性能', badge: '推荐' },
   'gemini-2.5-flash-lite': { name: 'Flash Lite', fullName: 'Gemini 2.5 Flash Lite', description: '轻量高速', badge: '快速' },
-  'gemini-3-flash-preview': { name: '3 Flash', fullName: 'Gemini 3 Flash', description: '最新模型', badge: '最新' }
+  'gemini-3-flash-preview': { name: '3 Flash', fullName: 'Gemini 3 Flash', description: '最新模型', badge: '最新' },
+  'gemini-3.1-flash-lite-preview': { name: '3.1 Lite', fullName: 'Gemini 3.1 Flash Lite', description: '超轻量预览', badge: '新型号' },
+  'gemini-3.1-pro-preview': { name: '3.1 Pro', fullName: 'Gemini 3.1 Pro', description: '高性能预览', badge: '高阶' }
 } as const;
 
 type ModelId = keyof typeof SUPPORTED_MODELS;

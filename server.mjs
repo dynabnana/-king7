@@ -91,7 +91,9 @@ let currentKeyIndex = 0;
 const SUPPORTED_MODELS = {
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费' },
   'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费' },
-  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: 'KING专属，最新模型' }
+  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: 'Gemini 3 预览版' },
+  'gemini-3.1-flash-lite-preview': { name: 'Gemini 3.1 Flash Lite', description: '轻量预览版，适合高频识别' },
+  'gemini-3.1-pro-preview': { name: 'Gemini 3.1 Pro', description: '高性能预览版，适合复杂识别' }
 };
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 // KING 用户专用模型（isUnlimited 用户）
@@ -579,7 +581,9 @@ const saveQuotaCodes = async (codes) => {
 const GEMINI_OCR_MODEL_OPTIONS = {
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '更强能力，每日约20次免费' },
   'gemini-2.5-flash-lite': { name: 'Gemini 2.5 Flash Lite', description: '高速识别，每日约1500次免费' },
-  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: 'KING专属，最新模型' }
+  'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: 'Gemini 3 预览版' },
+  'gemini-3.1-flash-lite-preview': { name: 'Gemini 3.1 Flash Lite', description: '轻量预览版，适合高频识别' },
+  'gemini-3.1-pro-preview': { name: 'Gemini 3.1 Pro', description: '高性能预览版，适合复杂识别' }
 };
 
 // iFlow OCR 模型选项
@@ -601,9 +605,9 @@ const DEFAULT_QUOTA_CONFIG = {
   ocrApiProvider: 'gemini',
   
   // Gemini OCR 各用户等级使用的模型
-  geminiNormalOcrModel: 'gemini-2.5-flash-lite',
-  geminiProOcrModel: 'gemini-2.5-flash',
-  geminiKingOcrModel: 'gemini-3-flash-preview',
+  geminiNormalOcrModel: 'gemini-3.1-flash-lite-preview',
+  geminiProOcrModel: 'gemini-3.1-flash-lite-preview',
+  geminiKingOcrModel: 'gemini-3.1-pro-preview',
   
   // iFlow OCR 各用户等级使用的模型
   iflowNormalOcrModel: 'qwen3-vl-plus',
@@ -1287,15 +1291,15 @@ app.post("/api/analyze/image-base64", async (req, res) => {
       }
     } else {
       // Gemini 模型（默认）
-      switch (userLevel) {
+        switch (userLevel) {
         case 'king':
-          modelToUse = config.geminiKingOcrModel || 'gemini-3-flash-preview';
+          modelToUse = config.geminiKingOcrModel || 'gemini-3.1-pro-preview';
           break;
         case 'pro':
-          modelToUse = config.geminiProOcrModel || 'gemini-2.5-flash';
+          modelToUse = config.geminiProOcrModel || 'gemini-3.1-flash-lite-preview';
           break;
         default:
-          modelToUse = config.geminiNormalOcrModel || 'gemini-2.5-flash-lite';
+          modelToUse = config.geminiNormalOcrModel || 'gemini-3.1-flash-lite-preview';
       }
     }
     
@@ -1484,7 +1488,9 @@ const SUMMARY_GEMINI_API_KEY = getEnvValue("SUMMARY_GEMINI_API_KEY", "GEMINI_API
 // ========== 智能小结模型配置 ==========
 // Gemini 模型选项列表
 const GEMINI_MODEL_OPTIONS = {
+  'gemini-3.1-flash-lite-preview': { name: 'Gemini 3.1 Flash Lite', description: '轻量预览版，适合高频处理' },
   'gemini-3-flash-preview': { name: 'Gemini 3 Flash', description: '最新预览版，能力最强' },
+  'gemini-3.1-pro-preview': { name: 'Gemini 3.1 Pro', description: '高性能预览版，适合复杂推理' },
   'gemini-2.5-flash': { name: 'Gemini 2.5 Flash', description: '性能均衡，推荐使用' },
   'gemini-2.0-flash': { name: 'Gemini 2.0 Flash', description: '经典稳定版本' }
 };
@@ -1500,14 +1506,18 @@ const SUMMARY_MODEL_OPTIONS = { ...GEMINI_MODEL_OPTIONS, ...IFLOW_MODEL_OPTIONS 
 
 // 七牛云 API 映射的模型名（仅Gemini模型）
 const SUMMARY_MODELS = {
+  'gemini-3.1-flash-lite-preview': 'gemini-3.1-flash-lite-preview',
   'gemini-3-flash-preview': 'gemini-3-flash-preview',
+  'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
   'gemini-2.5-flash': 'gemini-2.5-flash',
   'gemini-2.0-flash': 'gemini-2.0-flash-001'
 };
 
 // Gemini API 直连时使用的模型名
 const GEMINI_DIRECT_MODELS = {
+  'gemini-3.1-flash-lite-preview': 'gemini-3.1-flash-lite-preview',
   'gemini-3-flash-preview': 'gemini-3-flash-preview',
+  'gemini-3.1-pro-preview': 'gemini-3.1-pro-preview',
   'gemini-2.5-flash': 'gemini-2.5-flash',
   'gemini-2.0-flash': 'gemini-2.0-flash'
 };
@@ -1534,9 +1544,9 @@ const DEFAULT_SUMMARY_QUOTA_CONFIG = {
   maxImagesKing: 5,       // KING用户最多5张图
   
   // Gemini 各用户等级使用的模型
-  geminiNormalModel: 'gemini-2.0-flash',
-  geminiProModel: 'gemini-2.5-flash',
-  geminiKingModel: 'gemini-3-flash-preview',
+  geminiNormalModel: 'gemini-3.1-flash-lite-preview',
+  geminiProModel: 'gemini-3.1-flash-lite-preview',
+  geminiKingModel: 'gemini-3.1-pro-preview',
   
   // iFlow 各用户等级使用的模型
   iflowNormalModel: 'qwen3-max',
@@ -2031,13 +2041,13 @@ app.post("/api/summary/text", async (req, res) => {
         // Gemini 模型（默认）
         switch (actualUserLevel) {
           case 'king':
-            modelToUse = config.geminiKingModel || 'gemini-3-flash-preview';
+            modelToUse = config.geminiKingModel || 'gemini-3.1-pro-preview';
             break;
           case 'pro':
-            modelToUse = config.geminiProModel || 'gemini-2.5-flash';
+            modelToUse = config.geminiProModel || 'gemini-3.1-flash-lite-preview';
             break;
           default:
-            modelToUse = config.geminiNormalModel || 'gemini-2.0-flash';
+            modelToUse = config.geminiNormalModel || 'gemini-3.1-flash-lite-preview';
         }
       }
     }
