@@ -9,9 +9,19 @@
 | 变量名 | 说明 | 示例值 |
 |--------|------|--------|
 | `GEMINI_API_KEY` | Gemini API 密钥（必需）。支持多个密钥，用英文逗号分隔 | `AIzaSy...xxx,AIzaSy...yyy` |
+| `REDIS_URL` | 原生 Redis 连接串（推荐） | `redis://default:password@redis:6379/0` |
+| `REDIS_HOST` | 原生 Redis 主机地址（未使用 `REDIS_URL` 时） | `redis` |
+| `REDIS_PORT` | 原生 Redis 端口 | `6379` |
+| `REDIS_PASSWORD` | 原生 Redis 密码（可选） | `your-password` |
+| `REDIS_USERNAME` | 原生 Redis 用户名（可选） | `default` |
+| `REDIS_DB` | 原生 Redis 数据库编号（可选） | `0` |
+| `REDIS_TLS` | 是否启用 TLS（可选） | `false` |
 | `PORT` | 服务端口（可选，Zeabur 会自动设置） | `3000` |
 
-⚠️ **重要**：配置多个 API Key 可以提高并发能力，服务器会自动轮换使用。
+⚠️ **重要**：
+- 配置多个 API Key 可以提高并发能力，服务器会自动轮换使用。
+- 现在会优先连接原生 Redis；仅当未提供原生 Redis 配置时，才回退到 Upstash REST。
+- 本地开发会自动读取 `.env` / `.env.local`。
 
 ### 2. 构建命令
 
@@ -35,11 +45,16 @@ https://你的域名.zeabur.app/api/health
   "version": "v2",
   "hasEnvKey": true,
   "keyCount": 2,
+  "redis": {
+    "enabled": true,
+    "mode": "native",
+    "connected": true
+  },
   "timestamp": 1702500000000
 }
 ```
 
-如果 `hasEnvKey` 为 `true`，说明环境变量配置成功。
+如果 `hasEnvKey` 为 `true`，说明 API Key 已读取成功；如果 `redis.mode` 为 `native`，说明当前走的是原生 Redis。
 
 ---
 

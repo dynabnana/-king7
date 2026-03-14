@@ -2,6 +2,45 @@ import express from "express";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { createClient as createRedisClient } from "redis";
+
+const loadEnvFile = (fileName) => {
+  const filePath = path.resolve(process.cwd(), fileName);
+  if (!fs.existsSync(filePath)) {
+    return;
+  }
+
+  const content = fs.readFileSync(filePath, "utf-8");
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || line.startsWith("#")) {
+      continue;
+    }
+
+    const equalsIndex = line.indexOf("=");
+    if (equalsIndex <= 0) {
+      continue;
+    }
+
+    const key = line.slice(0, equalsIndex).trim();
+    if (!key || process.env[key] !== undefined) {
+      continue;
+    }
+
+    let value = line.slice(equalsIndex + 1).trim();
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1);
+    }
+
+    process.env[key] = value;
+  }
+};
+
+loadEnvFile(".env");
+loadEnvFile(".env.local");
 
 // 延迟加载 GoogleGenAI 以减少空闲内存
 let GoogleGenAI = null;
@@ -20,7 +59,7 @@ const upload = multer({
   storage: multer.memoryStorage()
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8000;
 const host = process.env.HOST || "0.0.0.0";
 
 // 管理后台密码（可通过环境变量覆盖）
@@ -30,8 +69,18 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || process.env.PASSWORD || "60
 const DATA_DIR = process.env.DATA_DIR || "/data";
 const USAGE_LOG_FILE = path.join(DATA_DIR, "usage_logs.json");
 
+const getEnvValue = (...keys) => {
+  for (const key of keys) {
+    const value = process.env[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+};
+
 // 从环境变量读取 API Keys（支持多个，用逗号分隔）
-const ENV_API_KEYS = (process.env.GEMINI_API_KEY || "")
+const ENV_API_KEYS = getEnvValue("GEMINI_API_KEY", "GOOGLE_API_KEY", "API_KEY")
   .split(",")
   .map((k) => k.trim())
   .filter(Boolean);
@@ -101,40 +150,23 @@ const initUsageLogs = async (forceReload = false) => {
 // 实际的初始化逻辑
 const _doInitUsageLogs = async () => {
 
-  // 先检查 Redis 配置是否可用（需要等待 Redis 配置加载）
-  const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || "";
-  const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
-  const canUseRedis = UPSTASH_URL && UPSTASH_TOKEN;
-
-  if (canUseRedis) {
+  if (USE_REDIS) {
     try {
-      // 从 Redis 加载使用记录
-      const response = await fetch(UPSTASH_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${UPSTASH_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(['GET', USAGE_LOGS_REDIS_KEY])
-      });
+      const data = await redisCommand('GET', USAGE_LOGS_REDIS_KEY);
+      if (data) {
+        const parsed = JSON.parse(data);
+        usageLogs = parsed.logs || [];
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.result) {
-          const parsed = JSON.parse(data.result);
-          usageLogs = parsed.logs || [];
+        // 重建用户统计
+        usageLogs.forEach(log => {
+          const key = log.nickname || log.userId || log.ip || "anonymous";
+          userStats.set(key, (userStats.get(key) || 0) + 1);
+        });
 
-          // 重建用户统计
-          usageLogs.forEach(log => {
-            const key = log.nickname || log.userId || log.ip || "anonymous";
-            userStats.set(key, (userStats.get(key) || 0) + 1);
-          });
-
-          console.log(`[Redis] Loaded ${usageLogs.length} usage logs from Redis`);
-          usageLogsInitialized = true;
-          initUsageLogsPromise = null; // 清除锁，确保空闲清理后能重新初始化
-          return;
-        }
+        console.log(`[Redis] Loaded ${usageLogs.length} usage logs from Redis`);
+        usageLogsInitialized = true;
+        initUsageLogsPromise = null; // 清除锁，确保空闲清理后能重新初始化
+        return;
       }
     } catch (err) {
       console.error("[Redis] Failed to load usage logs:", err.message);
@@ -166,10 +198,6 @@ const _doInitUsageLogs = async () => {
 
 // 保存使用记录到 Redis（优先）和本地文件（备份）
 const saveUsageLogs = async () => {
-  const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || "";
-  const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
-  const canUseRedis = UPSTASH_URL && UPSTASH_TOKEN;
-
   const dataToSave = JSON.stringify({
     lastUpdated: new Date().toISOString(),
     totalLogs: usageLogs.length,
@@ -177,20 +205,10 @@ const saveUsageLogs = async () => {
   });
 
   // 优先保存到 Redis
-  if (canUseRedis) {
+  if (USE_REDIS) {
     try {
-      const response = await fetch(UPSTASH_URL, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${UPSTASH_TOKEN}`,
-          'Content-Type': 'application/json'
-        },
-        // 使用 SETEX 设置 30 天过期时间
-        body: JSON.stringify(['SETEX', USAGE_LOGS_REDIS_KEY, 30 * 24 * 60 * 60, dataToSave])
-      });
-
-      if (response.ok) {
-        // Redis 保存成功，不需要本地备份
+      const result = await redisCommand('SETEX', USAGE_LOGS_REDIS_KEY, 30 * 24 * 60 * 60, dataToSave);
+      if (result !== null) {
         return;
       }
     } catch (err) {
@@ -338,16 +356,76 @@ const logUserUsage = async (req, apiType, extra = {}) => {
   return logEntry;
 };
 
-// 异步初始化使用记录（服务启动时）
-initUsageLogs().catch(err => {
-  console.error("[Init] Failed to initialize usage logs:", err.message);
-});
+// ========== 用户配额与兑换码系统（原生 Redis 优先，兼容 Upstash REST）==========
+const NATIVE_REDIS_URL = getEnvValue("REDIS_URL", "REDIS_CONNECTION_STRING");
+const NATIVE_REDIS_HOST = getEnvValue("REDIS_HOST");
+const NATIVE_REDIS_PORT = Number(getEnvValue("REDIS_PORT") || "6379");
+const NATIVE_REDIS_USERNAME = getEnvValue("REDIS_USERNAME", "REDIS_USER", "REDIS_DEFAULT_USERNAME");
+const NATIVE_REDIS_PASSWORD = getEnvValue("REDIS_PASSWORD", "REDIS_PASS", "REDIS_DEFAULT_PASSWORD");
+const NATIVE_REDIS_DB = Number(getEnvValue("REDIS_DB") || "0");
+const NATIVE_REDIS_TLS = /^(1|true|yes)$/i.test(getEnvValue("REDIS_TLS", "REDIS_SSL", "REDIS_USE_TLS"));
 
-// ========== 用户配额与兑换码系统（纯 Redis 模式）==========
-// Upstash Redis 配置（从环境变量读取）
-const UPSTASH_REDIS_REST_URL = process.env.UPSTASH_REDIS_REST_URL || "";
-const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || "";
-const USE_REDIS = UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN;
+const UPSTASH_REDIS_REST_URL = getEnvValue("UPSTASH_REDIS_REST_URL");
+const UPSTASH_REDIS_REST_TOKEN = getEnvValue("UPSTASH_REDIS_REST_TOKEN");
+
+const HAS_NATIVE_REDIS_CONFIG = Boolean(NATIVE_REDIS_URL || NATIVE_REDIS_HOST);
+const HAS_UPSTASH_REDIS_CONFIG = Boolean(UPSTASH_REDIS_REST_URL && UPSTASH_REDIS_REST_TOKEN);
+const USE_REDIS = HAS_NATIVE_REDIS_CONFIG || HAS_UPSTASH_REDIS_CONFIG;
+const REDIS_MODE = HAS_NATIVE_REDIS_CONFIG ? "native" : (HAS_UPSTASH_REDIS_CONFIG ? "upstash-rest" : "disabled");
+
+let nativeRedisClient = null;
+let nativeRedisConnectPromise = null;
+
+const getNativeRedisClient = async () => {
+  if (!HAS_NATIVE_REDIS_CONFIG) {
+    return null;
+  }
+
+  if (nativeRedisClient?.isOpen) {
+    return nativeRedisClient;
+  }
+
+  if (nativeRedisConnectPromise) {
+    return nativeRedisConnectPromise;
+  }
+
+  const options = NATIVE_REDIS_URL
+    ? { url: NATIVE_REDIS_URL }
+    : {
+        socket: {
+          host: NATIVE_REDIS_HOST,
+          port: NATIVE_REDIS_PORT,
+          tls: NATIVE_REDIS_TLS || NATIVE_REDIS_PORT === 6380
+        },
+        database: NATIVE_REDIS_DB || 0
+      };
+
+  if (!NATIVE_REDIS_URL && NATIVE_REDIS_USERNAME) {
+    options.username = NATIVE_REDIS_USERNAME;
+  }
+  if (!NATIVE_REDIS_URL && NATIVE_REDIS_PASSWORD) {
+    options.password = NATIVE_REDIS_PASSWORD;
+  }
+
+  const client = createRedisClient(options);
+  client.on("error", (err) => {
+    console.error("[Redis] Native client error:", err.message);
+  });
+
+  nativeRedisConnectPromise = client.connect()
+    .then(() => {
+      nativeRedisClient = client;
+      console.log("[Redis] Connected via native redis client");
+      return client;
+    })
+    .catch((err) => {
+      nativeRedisConnectPromise = null;
+      nativeRedisClient = null;
+      throw err;
+    });
+
+  return nativeRedisConnectPromise;
+};
 
 // 本地文件存储（Redis 不可用时的降级方案）
 const QUOTA_FILE = path.join(DATA_DIR, "user_quotas.json");
@@ -360,7 +438,12 @@ const redisCommand = async (command, ...args) => {
   if (!USE_REDIS) return null;
 
   try {
-    const response = await fetch(`${UPSTASH_REDIS_REST_URL}`, {
+    if (HAS_NATIVE_REDIS_CONFIG) {
+      const client = await getNativeRedisClient();
+      return await client.sendCommand([command, ...args.map((arg) => String(arg))]);
+    }
+
+    const response = await fetch(UPSTASH_REDIS_REST_URL, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
@@ -380,6 +463,11 @@ const redisCommand = async (command, ...args) => {
     return null;
   }
 };
+
+// 异步初始化使用记录（服务启动时）
+initUsageLogs().catch(err => {
+  console.error("[Init] Failed to initialize usage logs:", err.message);
+});
 
 // 工具函数：获取当前周标识 (e.g. "2025-W51")
 // 使用 ISO 8601 标准周数计算，确保周数在整个一周内保持一致
@@ -423,8 +511,10 @@ const getQuotaUsers = async () => {
 const saveQuotaUsers = async (users) => {
   if (USE_REDIS) {
     try {
-      await redisCommand('SETEX', 'quota:users', REDIS_DATA_TTL, JSON.stringify(users));
-      return;
+      const result = await redisCommand('SETEX', 'quota:users', REDIS_DATA_TTL, JSON.stringify(users));
+      if (result !== null) {
+        return;
+      }
     } catch (err) {
       console.error("[Redis] Failed to save users:", err.message);
     }
@@ -463,8 +553,10 @@ const getQuotaCodes = async () => {
 const saveQuotaCodes = async (codes) => {
   if (USE_REDIS) {
     try {
-      await redisCommand('SETEX', 'quota:codes', REDIS_DATA_TTL, JSON.stringify(codes));
-      return;
+      const result = await redisCommand('SETEX', 'quota:codes', REDIS_DATA_TTL, JSON.stringify(codes));
+      if (result !== null) {
+        return;
+      }
     } catch (err) {
       console.error("[Redis] Failed to save codes:", err.message);
     }
@@ -548,8 +640,10 @@ const saveQuotaConfig = async (config) => {
   const newConfig = { ...DEFAULT_QUOTA_CONFIG, ...config };
   if (USE_REDIS) {
     try {
-      await redisCommand('SET', 'quota:config', JSON.stringify(newConfig));
-      return;
+      const result = await redisCommand('SET', 'quota:config', JSON.stringify(newConfig));
+      if (result !== null) {
+        return;
+      }
     } catch (err) {
       console.error("[Redis] Failed to save config:", err.message);
     }
@@ -1376,16 +1470,16 @@ app.post("/api/analyze/excel-header", async (req, res) => {
 // ===========================================
 
 // 七牛云 AI API 配置
-const QINIU_AI_API_KEY = process.env.QINIU_AI_API_KEY || "";
+const QINIU_AI_API_KEY = getEnvValue("QINIU_AI_API_KEY");
 const QINIU_AI_BASE_URL = "https://api.qnaigc.com/v1";
 
 // 心流平台（iFlow）API 配置 - 免费API作为备选
-const IFLOW_AI_API_KEY = process.env.IFLOW_AI_API_KEY || "";
+const IFLOW_AI_API_KEY = getEnvValue("IFLOW_AI_API_KEY");
 const IFLOW_AI_BASE_URL = "https://apis.iflow.cn/v1";
 const IFLOW_DEFAULT_MODEL = "qwen3-max";  // 心流平台的默认模型
 
 // Gemini API 配置（智能小结专用，与OCR的GEMINI_API_KEY分开）
-const SUMMARY_GEMINI_API_KEY = process.env.SUMMARY_GEMINI_API_KEY || "";
+const SUMMARY_GEMINI_API_KEY = getEnvValue("SUMMARY_GEMINI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "API_KEY");
 
 // ========== 智能小结模型配置 ==========
 // Gemini 模型选项列表
@@ -1494,8 +1588,10 @@ const saveSummaryPrompts = async (prompts) => {
   const newPrompts = { ...DEFAULT_SUMMARY_PROMPTS, ...prompts };
   if (USE_REDIS) {
     try {
-      await redisCommand('SET', 'summary:prompts', JSON.stringify(newPrompts));
-      return true;
+      const result = await redisCommand('SET', 'summary:prompts', JSON.stringify(newPrompts));
+      if (result !== null) {
+        return true;
+      }
     } catch (err) {
       console.error("[Redis] Failed to save summary prompts:", err.message);
     }
@@ -1523,8 +1619,10 @@ const saveSummaryConfig = async (config) => {
   const newConfig = { ...DEFAULT_SUMMARY_QUOTA_CONFIG, ...config };
   if (USE_REDIS) {
     try {
-      await redisCommand('SET', 'summary:config', JSON.stringify(newConfig));
-      return true;
+      const result = await redisCommand('SET', 'summary:config', JSON.stringify(newConfig));
+      if (result !== null) {
+        return true;
+      }
     } catch (err) {
       console.error("[Redis] Failed to save summary config:", err.message);
     }
@@ -1549,8 +1647,10 @@ const getSummaryUsers = async () => {
 const saveSummaryUsers = async (users) => {
   if (USE_REDIS) {
     try {
-      await redisCommand('SETEX', 'summary:users', REDIS_DATA_TTL, JSON.stringify(users));
-      return true;
+      const result = await redisCommand('SETEX', 'summary:users', REDIS_DATA_TTL, JSON.stringify(users));
+      if (result !== null) {
+        return true;
+      }
     } catch (err) {
       console.error("[Redis] Failed to save summary users:", err.message);
     }
@@ -2269,6 +2369,11 @@ app.get("/api/health", (req, res) => {
     port,
     hasEnvKey: ENV_API_KEYS.length > 0,
     keyCount: ENV_API_KEYS.length,
+    redis: {
+      enabled: USE_REDIS,
+      mode: REDIS_MODE,
+      connected: HAS_NATIVE_REDIS_CONFIG ? Boolean(nativeRedisClient?.isOpen) : HAS_UPSTASH_REDIS_CONFIG
+    },
     timestamp: Date.now(),
     memory: {
       heapUsed: Math.round(memUsage.heapUsed / 1024 / 1024 * 100) / 100, // MB
@@ -3206,7 +3311,10 @@ if (!process.env.VERCEL) {
     console.log(
       `Environment API Keys configured: ${ENV_API_KEYS.length > 0 ? ENV_API_KEYS.length : "None (will use request header)"}`
     );
-    console.log(`[Redis] ${USE_REDIS ? "Configured" : "Not configured"}`);
+    console.log(
+      `[Env] PORT=${process.env.PORT ? "set" : "missing"}, GEMINI_API_KEY=${process.env.GEMINI_API_KEY ? "set" : "missing"}, SUMMARY_GEMINI_API_KEY=${process.env.SUMMARY_GEMINI_API_KEY ? "set" : "missing"}, REDIS_URL=${process.env.REDIS_URL ? "set" : "missing"}`
+    );
+    console.log(`[Redis] ${USE_REDIS ? `Configured (${REDIS_MODE})` : "Not configured"}`);
     console.log(`[Memory] Idle cleanup: ${IDLE_THRESHOLD_MS / 1000}s light, ${DEEP_CLEAN_THRESHOLD_MS / 1000}s deep`);
     console.log(`[Memory] Initial heap: ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)}MB`);
   });
