@@ -2611,8 +2611,9 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
   // 用于记录每个用户的当前总次数和本月次数
-  const userTotalCalls = new Map();
-  const userMonthCalls = new Map();
+  const latestUserTotalCalls = new Map();
+  const latestUserMonthCalls = new Map();
+  const historicalUserTotalCalls = new Map();
 
   // 统一的用户标识计算函数
   const getUserKey = (log) => {
@@ -2634,16 +2635,21 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     const logTime = new Date(log.timestamp).getTime();
 
     // 累加该用户的总次数
-    userTotalCalls.set(userKey, (userTotalCalls.get(userKey) || 0) + 1);
+    const historicalCount = (historicalUserTotalCalls.get(userKey) || 0) + 1;
+    historicalUserTotalCalls.set(userKey, historicalCount);
+    if (typeof log.cumulativeCount !== 'number' || !Number.isFinite(log.cumulativeCount)) {
+      log.cumulativeCount = historicalCount;
+    }
+    latestUserTotalCalls.set(userKey, historicalCount);
 
     // 累加该用户的本月次数
     if (logTime >= monthStart) {
-      userMonthCalls.set(userKey, (userMonthCalls.get(userKey) || 0) + 1);
+      latestUserMonthCalls.set(userKey, (latestUserMonthCalls.get(userKey) || 0) + 1);
     }
   });
 
   // 调试日志：输出统计结果
-  console.log('[Admin API] User stats:', Object.fromEntries(userTotalCalls));
+  console.log('[Admin API] User stats:', Object.fromEntries(latestUserTotalCalls));
 
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
@@ -2654,8 +2660,10 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     const userKey = getUserKey(log);
     return {
       ...log,
-      userTotalCalls: userTotalCalls.get(userKey) || 0,
-      userMonthCalls: userMonthCalls.get(userKey) || 0
+      userTotalCalls: log.cumulativeCount || 0,
+      userMonthCalls: latestUserMonthCalls.get(userKey) || 0,
+      currentUserTotalCalls: latestUserTotalCalls.get(userKey) || 0,
+      currentUserMonthCalls: latestUserMonthCalls.get(userKey) || 0
     };
   });
 
