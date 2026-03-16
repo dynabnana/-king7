@@ -2606,11 +2606,12 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     });
   }
 
-  // 计算每个用户的当前最新累计总次数和本月次数
+  // 计算每个用户的日志累计次数和本月次数
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  // 用于记录每个用户的当前总次数和本月次数
+  // latestUserTotalCalls/latestUserMonthCalls 是该用户截至目前的汇总
+  // historicalUserTotalCalls 用来给每条日志补上“发生当时的累计次数”
   const latestUserTotalCalls = new Map();
   const latestUserMonthCalls = new Map();
   const historicalUserTotalCalls = new Map();
@@ -2634,12 +2635,15 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     const userKey = getUserKey(log);
     const logTime = new Date(log.timestamp).getTime();
 
-    // 累加该用户的总次数
+    // 先按时间顺序累计，得到这条日志发生当时的次数
     const historicalCount = (historicalUserTotalCalls.get(userKey) || 0) + 1;
     historicalUserTotalCalls.set(userKey, historicalCount);
+
+    // 老数据可能没有 cumulativeCount，这里补算出来
     if (typeof log.cumulativeCount !== 'number' || !Number.isFinite(log.cumulativeCount)) {
       log.cumulativeCount = historicalCount;
     }
+
     latestUserTotalCalls.set(userKey, historicalCount);
 
     // 累加该用户的本月次数
@@ -2648,22 +2652,19 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     }
   });
 
-  // 调试日志：输出统计结果
-  console.log('[Admin API] User stats:', Object.fromEntries(latestUserTotalCalls));
-
   const start = (page - 1) * pageSize;
   const end = start + pageSize;
   const paginatedLogs = sortedLogs.slice(start, end);
 
-  // 为每条日志返回该用户的当前最新累计数据
+  // 返回前端原来就使用的字段名：
+  // userTotalCalls 显示该条日志发生时是第几次
+  // userMonthCalls 显示该用户本月累计次数
   const enrichedLogs = paginatedLogs.map(log => {
     const userKey = getUserKey(log);
     return {
       ...log,
       userTotalCalls: log.cumulativeCount || 0,
-      userMonthCalls: latestUserMonthCalls.get(userKey) || 0,
-      currentUserTotalCalls: latestUserTotalCalls.get(userKey) || 0,
-      currentUserMonthCalls: latestUserMonthCalls.get(userKey) || 0
+      userMonthCalls: latestUserMonthCalls.get(userKey) || 0
     };
   });
 
