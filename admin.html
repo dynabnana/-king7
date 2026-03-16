@@ -1151,6 +1151,7 @@
     let authToken = localStorage.getItem('adminToken');
     let logsPage = 1;
     let currentLogSearch = '';
+    let adminAutoRefreshTimer = null;
 
     // ====== 本地预览模式 ======
     const isLocalPreview = location.protocol === 'file:';
@@ -1222,6 +1223,7 @@
       document.getElementById('loginPage').style.display = 'none';
       const db = document.getElementById('dashboard');
       db.classList.remove('hidden');
+      startAdminAutoRefresh();
     }
 
     async function loadAllData() {
@@ -1231,6 +1233,16 @@
       loadUsers();
       loadSummaryStats();
       loadSummaryPrompts();
+    }
+
+    function startAdminAutoRefresh() {
+      if (adminAutoRefreshTimer) return;
+      adminAutoRefreshTimer = setInterval(() => {
+        if (!authToken || document.hidden) return;
+        loadLogs(logsPage, currentLogSearch);
+        loadStats();
+        loadUsers();
+      }, 10000);
     }
 
     /* --- Auth --- */

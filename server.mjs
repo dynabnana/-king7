@@ -358,6 +358,8 @@ const logUserUsage = async (req, apiType, extra = {}) => {
   return logEntry;
 };
 
+const getUsageLogUserKey = (log) => log.nickname || log.userId || log.ip || 'anonymous';
+
 // ========== 用户配额与兑换码系统（原生 Redis 优先，兼容 Upstash REST）==========
 const NATIVE_REDIS_URL = getEnvValue("REDIS_URL", "REDIS_CONNECTION_STRING");
 const NATIVE_REDIS_HOST = getEnvValue("REDIS_HOST");
@@ -1240,8 +1242,8 @@ app.post("/api/analyze/image-base64", async (req, res) => {
     const { base64, mimeType, userId, nickname } = req.body || {};
 
     // ----- 配额检查 START -----
-    // 优先使用 userId，如果没有则尝试用 IP (不推荐，小程序应传 userId/openid)
-    const userIdentifier = userId || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "anonymous_user";
+    // 优先使用稳定的用户标识；没有 userId 时退回到昵称，最后才使用 IP
+    const userIdentifier = userId || nickname || req.headers["x-forwarded-for"]?.split(",")[0]?.trim() || "anonymous_user";
 
     const quotaResult = await checkAndConsumeQuota(userIdentifier, nickname);
     if (!quotaResult.allowed) {
@@ -2610,29 +2612,12 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
 
-  // latestUserTotalCalls/latestUserMonthCalls 是该用户截至目前的汇总
   // historicalUserTotalCalls 用来给每条日志补上“发生当时的累计次数”
-  const latestUserTotalCalls = new Map();
-  const latestUserMonthCalls = new Map();
   const historicalUserTotalCalls = new Map();
-
-  // 统一的用户标识计算函数
-  const getUserKey = (log) => {
-    // nickname 要有值且不是 '匿名'
-    if (log.nickname && log.nickname !== '匿名' && log.nickname !== 'null') {
-      return log.nickname;
-    }
-    // userId 要有值
-    if (log.userId && log.userId !== 'null') {
-      return log.userId;
-    }
-    // 最后用 IP
-    return log.ip || 'anonymous';
-  };
 
   // 遍历所有日志，计算每个用户的累计统计
   usageLogs.forEach(log => {
-    const userKey = getUserKey(log);
+    const userKey = getUsageLogUserKey(log);
     const logTime = new Date(log.timestamp).getTime();
 
     // 先按时间顺序累计，得到这条日志发生当时的次数
@@ -2643,13 +2628,6 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
     if (typeof log.cumulativeCount !== 'number' || !Number.isFinite(log.cumulativeCount)) {
       log.cumulativeCount = historicalCount;
     }
-
-    latestUserTotalCalls.set(userKey, historicalCount);
-
-    // 累加该用户的本月次数
-    if (logTime >= monthStart) {
-      latestUserMonthCalls.set(userKey, (latestUserMonthCalls.get(userKey) || 0) + 1);
-    }
   });
 
   const start = (page - 1) * pageSize;
@@ -2658,13 +2636,21 @@ app.get("/api/admin/usage-logs", verifyAdminToken, async (req, res) => {
 
   // 返回前端原来就使用的字段名：
   // userTotalCalls 显示该条日志发生时是第几次
-  // userMonthCalls 显示该用户本月累计次数
+  // userMonthCalls 优先显示写入日志时记录的“本月第几次”
   const enrichedLogs = paginatedLogs.map(log => {
-    const userKey = getUserKey(log);
+    const logTime = new Date(log.timestamp).getTime();
+    const fallbackMonthCalls = usageLogs.filter(item => {
+      if (getUsageLogUserKey(item) !== getUsageLogUserKey(log)) return false;
+      const itemTime = new Date(item.timestamp).getTime();
+      return itemTime >= monthStart && itemTime <= logTime;
+    }).length;
+
     return {
       ...log,
       userTotalCalls: log.cumulativeCount || 0,
-      userMonthCalls: latestUserMonthCalls.get(userKey) || 0
+      userMonthCalls: (typeof log.userMonthCalls === 'number' && Number.isFinite(log.userMonthCalls))
+        ? log.userMonthCalls
+        : fallbackMonthCalls
     };
   });
 
